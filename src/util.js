@@ -7,6 +7,27 @@ import {BLACKLISTED_ETH_ADDR, MAINNET_ADDRESS_SIZE, PAYLOAD_SIZE, SIG_SIZE, TXN_
 
 require('dotenv').config();
 
+// Parse request body and verify TX hash and eth address
+export function validateStatusRequest(reqBody) {
+  const { address, txnHash } = reqBody;
+
+  if (!txnHash || !address) {
+    throw new Error('txnHash and address must be supplied');
+  }
+
+  // Ensure correct tx hash
+  if (txnHash.length !== TXN_HASH_SIZE) {
+    throw new Error(`txnHash must be of size ${TXN_HASH_SIZE} bytes but was ${txnHash.length} bytes`);
+  }
+
+  // Ensure address isnt blacklisted
+  if (isBlacklistedAddress(address)) {
+    throw new Error('Address is blacklisted');
+  }
+
+  return [address, txnHash];
+}
+
 // Parse request body and verify signature. Return mainnet address, ethereum address, transaction hash and signature
 export function validateMigrationRequest(reqBody) {
   const [payloadBytes, sigBytes] = parseMigrationRequest(reqBody);
@@ -58,6 +79,5 @@ export function parseMigrationRequest(reqBody) {
 
 // Check that the Ethereum address is not blacklisted
 export function isBlacklistedAddress(ethAddr) {
-  return BLACKLISTED_ETH_ADDR.indexOf(ethAddr) === -1
+  return BLACKLISTED_ETH_ADDR.indexOf(ethAddr) !== -1;
 }
-

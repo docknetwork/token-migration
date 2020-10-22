@@ -50,3 +50,9 @@ export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnH
         }
     }
 }
+
+export async function getPendingMigrationRequests(dbClient) {
+    const sql = `SELECT * FROM public.requests WHERE status >= ${REQ_STATUS.SIG_VALID} AND status < ${REQ_STATUS.MIGRATION_DONE}`;
+    const res = await dbClient.query(sql);
+    return res.rows;
+}

@@ -10,6 +10,7 @@ API_PORT = 3000
 ETH_NODE_ENDPOINT = <HTTP/S endpoint to connect to Ethereum node, can be from Infura>
 # Address of Dock's ERC-20 contract
 DOCK_ERC_20_ADDR = 0xe5dada80aa6477e85d09747f2842f7993d0df71c
+DOCK_ERC_20_VAULT_ADDR = <Dock's vault address>
 DB_ENDPOINT = <For connection to db>
 # Default port of Postgres
 DB_PORT = 5432
@@ -19,6 +20,11 @@ DB_PASS = <password for db connection>
 DB_NAME = token-migration
 # Whether connecting to Dock's `main` or `test` network. This affects address validation 
 DOCK_NETWORK_TYPE = test
+# 1 min
+SCHEDULER_FREQ = 60000
+DOCK_NODE_ENDPOINT = <RPC endpoint of node>
+MIGRATOR_ADDR = <Migrator's address>
+MIGRATOR_SK = <Migrator's secret URI>
 ```
 
 ## Run a testing Ethereum node with deterministic seed
@@ -37,6 +43,7 @@ CREATE TABLE public.requests
     eth_txn_hash character(64) COLLATE pg_catalog."default" NOT NULL,
     mainnet_address character(48) COLLATE pg_catalog."default" NOT NULL,
     status smallint NOT NULL,
+    wei bigint,
     mainnet_txn_hash character(64) COLLATE pg_catalog."default",
     mainnet_tokens_given bigint,
     signature character(130) COLLATE pg_catalog."default" NOT NULL,

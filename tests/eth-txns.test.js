@@ -1,4 +1,4 @@
-import {getNewWeb3MainnetClient, getTransactionAsDockERC20Transfer, getTransactionWithLogs} from "../src/eth-txn-utils";
+import {getNewWeb3MainnetClient, getTransactionAsDockERC20Transfer, getTransactionWithLogs, parseTxnAsERC20TransferToRecip} from "../src/eth-txn-utils";
 
 require('dotenv').config();
 
@@ -25,5 +25,13 @@ describe('Get and parse ethereum txns', () => {
     expect(transfer.from.toLowerCase()).toBe('0xa24ca79d901aea51dd6296071ed6717aeb2031fd');
     expect(transfer.to.toLowerCase()).toBe('0x9050292324a20ce723e073e18ad812b5b218f032');
     expect(transfer.value).toBe("84000000000000000000");
+  }, 5000);
+
+  test('Check if Dock ERC-20 and given to specific recipient', async () => {
+    const txnHash = '0x51279a0b8b7f18610dd2dc60b36430fa54f4de12219612f894e9fd0dbd495174';
+    const txn = await getTransactionWithLogs(web3Client, txnHash);
+    const expectedRecipient = '0x1062a747393198f70f71ec65a582423dba7e5ab3'
+    const transfer = await parseTxnAsERC20TransferToRecip(web3Client, txn, process.env.DOCK_ERC_20_ADDR, expectedRecipient);
+    expect(transfer.to.toLowerCase()).toBe(expectedRecipient);
   }, 5000);
 });

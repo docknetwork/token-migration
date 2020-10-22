@@ -2,7 +2,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import slowDown from 'express-slow-down';
 import {DBClient, trackNewRequest} from './db-utils';
-import {validateMigrationRequest} from "./util";
+import {validateStatusRequest, validateMigrationRequest} from "./util";
 
 require('dotenv').config();
 
@@ -23,6 +23,26 @@ async function onMigrationRequest(req, res) {
     res.statusCode = 200;
     res.json({
       error: null,
+    });
+  } catch (e) {
+    res.statusCode = 400;
+    res.json({
+      error: e.toString(),
+    });
+  }
+}
+
+async function onStatusRequest(req, res) {
+  try {
+    const [ethAddress, txnHash] = await validateStatusRequest(req.body);
+    // TODO: check status
+    // const status = await getRequestStatus(ethAddress, txnHash);
+    const status = 'processing';
+
+    res.statusCode = 200;
+    res.json({
+      error: null,
+      status,
     });
   } catch (e) {
     res.statusCode = 400;
@@ -63,8 +83,11 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
     next();
   });
 
-  // Listen for drip route
+  // Listen for migration route
   server.post('/migrate', onMigrationRequest);
+
+  // Listen for status route
+  server.post('/status', onStatusRequest);
 
   // TODO: Add check status API
 });

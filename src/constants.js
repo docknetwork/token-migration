@@ -34,10 +34,11 @@ export const REQ_STATUS = {
     INVALID: -1,
     // Signature valid but transaction not parsed to find out how many tokens to transfer.
     SIG_VALID: 0,
-    // Parsed but not sufficient confirmations
+    // Parsed and checked that was intended for Dock's contract and vault address but not sufficient confirmations
     TXN_PARSED: 1,
     // Sufficient confirmations
     TXN_CONFIRMED: 2,
     ATTEMPTING_MIGRATION: 3,
-    MIGRATION_DONE: 4,
+    // Migration is complete, leaving some gap to fill potential intermediate states
+    MIGRATION_DONE: 10,
 }

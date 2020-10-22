@@ -1,4 +1,4 @@
-import {DBClient, trackNewRequest} from '../src/db-utils';
+import {DBClient, trackNewRequest, getPendingMigrationRequests} from '../src/db-utils';
 
 describe('DB interaction', () => {
     let dbClient;
@@ -28,6 +28,10 @@ describe('DB interaction', () => {
         await expect(trackNewRequest(dbClient, '39QKJG54MzsG66GTjQwEwrZ6FEkXrEEVa4LsAt759UNrfYLm', addr, hash, genRanHex(128)))
             .rejects
             .toThrow();
+
+        const reqs = await getPendingMigrationRequests(dbClient);
+        expect(reqs.length).toBeGreaterThanOrEqual(2);
+        console.log(reqs);
     });
 
     afterAll(async (done) => {

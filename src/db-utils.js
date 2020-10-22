@@ -34,6 +34,24 @@ export class DBClient {
     }
 }
 
+export async function getRequestStatus(dbClient, address, txnHash) {
+    const sql = 'SELECT status FROM public.requests WHERE eth_address = $1 AND eth_txn_hash = $2 LIMIT 1';
+    const values = [address, txnHash];
+
+    let res;
+    try {
+      res = await dbClient.query(sql, values);
+    } catch (e) {
+      throw new Error(`Unexpected error. Message: ${e.message}, detail: ${e.detail}`)
+    }
+
+    if (res && res.rows.length > 0) {
+      return res.rows[0].status;
+    } else {
+      throw new Error(`Cannot find token migration request with address: ${address} and txnHash: ${txnHash}`);
+    }
+}
+
 // Track a new migration request in DB. Will throw error if request already tracked else return the inserted row
 export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature) {
     const sql = 'INSERT INTO public.requests(eth_address, eth_txn_hash, mainnet_address, status, signature) VALUES($1, $2, $3, $4, $5) RETURNING *';

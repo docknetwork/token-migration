@@ -1,7 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import slowDown from 'express-slow-down';
-import {DBClient, trackNewRequest} from './db-utils';
+import {DBClient, trackNewRequest, getRequestStatus} from './db-utils';
 import {validateStatusRequest, validateMigrationRequest} from "./util";
 
 require('dotenv').config();
@@ -35,9 +35,7 @@ async function onMigrationRequest(req, res) {
 async function onStatusRequest(req, res) {
   try {
     const [ethAddress, txnHash] = await validateStatusRequest(req.body);
-    // TODO: check status
-    // const status = await getRequestStatus(ethAddress, txnHash);
-    const status = 'processing';
+    const status = await getRequestStatus(dbClient, ethAddress, txnHash);
 
     res.statusCode = 200;
     res.json({

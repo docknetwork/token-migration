@@ -16,8 +16,8 @@ export function validateStatusRequest(reqBody) {
   }
 
   // Ensure correct tx hash
-  if (txnHash.length !== TXN_HASH_SIZE) {
-    throw new Error(`txnHash must be of size ${TXN_HASH_SIZE} bytes but was ${txnHash.length} bytes`);
+  if (txnHash.length !== TXN_HASH_SIZE*2) {
+    throw new Error(`txnHash must be of size ${TXN_HASH_SIZE*2} chars but was ${txnHash.length} chars`);
   }
 
   // Ensure address isnt blacklisted

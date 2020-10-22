@@ -1,5 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import slowDown from 'express-slow-down';
 import {DBClient, trackNewRequest} from './db-utils';
 import {validateMigrationRequest} from "./util";
 

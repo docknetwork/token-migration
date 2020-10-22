@@ -19,10 +19,10 @@ export class DockNodeClient {
     // Add account using URI, do migration, remove account to avoid keeping signing key in memory.
     // recipients is a list of pairs, i.e array of 2 element arrays containing an address
     async migrate(recipients) {
-        const keyring = new Keyring();
+        // It is known that migrator has sr25519 keys
+        const keyring = new Keyring({ type: 'sr25519' });
         const account = keyring.addFromUri(process.env.MIGRATOR_SK);
         this.handle.setAccount(account);
-
         const txn = this.handle.migrationModule.migrateRecipAsList(recipients);
 
         try {

@@ -21,20 +21,22 @@ export class DockNodeClient {
     async migrate(recipients) {
         // It is known that migrator has sr25519 keys
         const keyring = new Keyring({ type: 'sr25519' });
-        const account = keyring.addFromUri(process.env.MIGRATOR_SK);
-        this.handle.setAccount(account);
+        // TODO: Move `MIGRATOR_SK` to a file that is not part of git.
+        const keypair = keyring.addFromUri(process.env.MIGRATOR_SK);
+        this.handle.setAccount(keypair);
         const txn = this.handle.migrationModule.migrateRecipAsList(recipients);
 
         try {
             const { status } = await this.handle.signAndSend(txn, false);
-            this.clearKeypair(keyring, account.address);
+            this.clearKeypair(keyring, keypair);
             return status.asInBlock;
         } catch (e) {
-            this.clearKeypair(keyring, account.address);
+            this.clearKeypair(keyring, keypair);
             throw new Error(`Migration failed with error ${e}`);
         }
     }
 
+    // Get migrator's allowed migrations free balance
     async getMigratorDetails() {
         const address = process.env.MIGRATOR_ADDR;
         const [allowedMigrations, balance] = await multiQuery(this.handle, [
@@ -48,13 +50,16 @@ export class DockNodeClient {
         return [allowedMigrations.value.toNumber(), balance.data.free];
     }
 
-    clearKeypair(keyring, address) {
-        // TODO: Is `removePair` sufficient to zero out the key? What about env vars in memory? Need to look
-        keyring.removePair(address);
+    clearKeypair(keyring, keypair) {
+        // TODO: Is `lock` and `removePair` sufficient to zero out the key? Need to look
+        // `lock` sets the secret key to empty byte array
+        keypair.lock(); 
+        keyring.removePair(keypair.address);
         this.handle.account = undefined;
     }
 }
 
+// Sent multiple queries in a batch
 async function multiQuery(handle, queries) {
     return new Promise((resolve, reject) => {
         try {

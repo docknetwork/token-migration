@@ -1,24 +1,18 @@
-import {DBClient, getPendingMigrationRequests} from './db-utils';
+import {DBClient} from './db-utils';
+import {processPendingRequests} from "./migrations";
+import {getNewWeb3MainnetClient} from "./eth-txn-utils";
 
 require('dotenv').config();
 
 // This script must be run with `forever` to keep on running
 
 let dbClient;
+let web3Client;
 let wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-// Check if any pending requests and try to do migration
-async function checkPendingRequests() {
-    /*console.log('In do something');
-    await wait(100);
-    console.timeLog('t');*/
-    const requests = await getPendingMigrationRequests(dbClient);
-    // TODO:
-}
 
 // This function will check for pending requests and wait for a minute and then recurse.
 async function schedule() {
-    await checkPendingRequests();
+    await processPendingRequests(dbClient, web3Client);
     // await wait(2000);
     await wait(process.env.SCHEDULER_FREQ);
     await schedule();
@@ -27,6 +21,7 @@ async function schedule() {
 void async function() {
     dbClient = new DBClient();
     await dbClient.start();
+    web3Client = getNewWeb3MainnetClient();
     // console.time('t')
     await schedule();
     // console.log('done');

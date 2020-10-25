@@ -79,5 +79,21 @@ export function parseMigrationRequest(reqBody) {
 
 // Check that the Ethereum address is not blacklisted
 export function isBlacklistedAddress(ethAddr) {
-  return BLACKLISTED_ETH_ADDR.indexOf(ethAddr) !== -1;
+  return BLACKLISTED_ETH_ADDR.indexOf(ethAddr) !== -1
+}
+
+// Add prefix '0x' to a hex string if not already. Doesn't check if string is hex or not
+export function toHexWithPrefix(string) {
+  if (!string.startsWith('0x')) {
+    return '0x' + string;
+  }
+  return string;
+}
+
+// Remove prefix '0x' from a hex string if present. Doesn't check if string is hex or not
+export function toHexWithoutPrefix(string) {
+  if (string.startsWith('0x')) {
+    return string.slice(2);
+  }
+  return string
 }

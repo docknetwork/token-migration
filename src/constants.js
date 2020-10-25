@@ -23,7 +23,8 @@ export const SIG_SIZE = 65;
 
 // TODO: Add more addresses blacklisted by exchanges etc
 export const BLACKLISTED_ETH_ADDR = [
-    '0xeb31973e0febf3e3d7058234a5ebbae1ab4b8c23'
+    // Kucoin Sep-20 hacker
+    'eb31973e0febf3e3d7058234a5ebbae1ab4b8c23'
 ]
 
 // Status tracked in database for each migration request passing signature verification

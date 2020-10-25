@@ -27,6 +27,9 @@ MIGRATOR_ADDR = <Migrator's address>
 MIGRATOR_SK = <Migrator's secret URI>
 ```
 
+## Running with Infura
+When using Infura as an Ethereum node, ensure methods `eth_getTransactionReceipt` and `eth_blockNumber` are whitelisted.
+
 ## Run a testing Ethereum node with deterministic seed
 
 ```
@@ -43,9 +46,9 @@ CREATE TABLE public.requests
     eth_txn_hash character(64) COLLATE pg_catalog."default" NOT NULL,
     mainnet_address character(48) COLLATE pg_catalog."default" NOT NULL,
     status smallint NOT NULL,
-    wei bigint,
+    erc20 varchar(80),
     mainnet_txn_hash character(64) COLLATE pg_catalog."default",
-    mainnet_tokens_given bigint,
+    mainnet_tokens_given varchar(22),
     signature character(130) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT requests_pkey PRIMARY KEY (eth_address, eth_txn_hash)
 )

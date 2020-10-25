@@ -2,6 +2,8 @@
 
 import {Pool as PgPool} from 'pg';
 import {REQ_STATUS} from "./constants";
+import {isBlacklistedAddress} from './util';
+
 require('dotenv').config();
 
 // Client for interacting with DB
@@ -55,7 +57,8 @@ export async function getRequestStatus(dbClient, address, txnHash) {
 // Track a new migration request in DB. Will throw error if request already tracked else return the inserted row
 export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature) {
     const sql = 'INSERT INTO public.requests(eth_address, eth_txn_hash, mainnet_address, status, signature) VALUES($1, $2, $3, $4, $5) RETURNING *';
-    const values = [ethAddress, txnHash, mainnetAddress, REQ_STATUS.SIG_VALID, signature];
+    const status = isBlacklistedAddress(ethAddress) ? REQ_STATUS.INVALID_BLACKLIST : REQ_STATUS.SIG_VALID;
+    const values = [ethAddress, txnHash, mainnetAddress, status, signature];
     try {
         const res = await dbClient.query(sql, values);
         return res.rows[0];
@@ -73,4 +76,22 @@ export async function getPendingMigrationRequests(dbClient) {
     const sql = `SELECT * FROM public.requests WHERE status >= ${REQ_STATUS.SIG_VALID} AND status < ${REQ_STATUS.MIGRATION_DONE}`;
     const res = await dbClient.query(sql);
     return res.rows;
+}
+
+async function setRequestStatus(dbClient, ethAddr, txnHash, status) {
+    const sql = `UPDATE public.requests SET status = ${status} WHERE ethAddr = ${ethAddr} AND txnHash = ${txnHash}`;
+    return dbClient.query(sql);
+}
+
+export async function markRequestInvalid(dbClient, ethAddr, txnHash) {
+    return setRequestStatus(dbClient, ethAddr, txnHash, REQ_STATUS.INVALID);
+}
+
+export async function markRequestParsed(dbClient, ethAddr, txnHash, erc20) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.TXN_PARSED}, erc20 = ${erc20} WHERE ethAddr = ${ethAddr} AND txnHash = ${txnHash}`;
+    return dbClient.query(sql);
+}
+
+export async function markRequestConfirmed(dbClient, ethAddr, txnHash) {
+    return setRequestStatus(dbClient, ethAddr, txnHash, REQ_STATUS.TXN_CONFIRMED);
 }

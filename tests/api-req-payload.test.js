@@ -5,7 +5,6 @@ import { privateToAddress, hashPersonalMessage, ecsign, toRpcSig } from 'ethereu
 import {parseMigrationRequest, validateMigrationRequest, verifyPayloadSig} from '../src/util';
 import {getNewWeb3MainnetClient} from "../src/eth-txn-utils";
 import {DBClient} from "../src/db-utils";
-import {processPendingRequests} from "../src/migrations";
 
 describe('Validate migration request payload', () => {
   const privateKey = Buffer.from('efca4cdd31923b50f4214af5d2ae10e7ac45a5019e9431cc195482d707485378', 'hex');
@@ -62,8 +61,8 @@ describe('Validate migration request payload', () => {
      expect(txnHash).toBe('5e618464858638cb8b4df51db776c7293d138b170103a999644de87aa93d138a');
   });
 
-  test('Check pending request', async () => {
-    const r = await processPendingRequests(dbClient, web3Client)
-    // TODO:
-  }, 30000)
+  afterAll(async (done) => {
+    await dbClient.stop();
+    done();
+  }, 5000);
 });

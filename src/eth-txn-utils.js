@@ -20,7 +20,7 @@ export function parseTxnAsDockERC20Transfer(web3Client, txn) {
 }
 
 // Given a txn receipt, try to parse it as a `transfer` of an ERC-20 contract.
-// Returns an object {from: <sender address>, to: <recip address>, value: <amount in erc20>}
+// Returns an object {from: <sender address>, to: <recip address>, value: <amount in erc20>, blockNumber: <block number of transfer>}
 export function parseTxnAsERC20Transfer(web3Client, txn, contractAddress) {
     // `txn` is the output of the JSON-RPC call `eth_getTransactionReceipt`.
     if ((typeof txn === 'object')
@@ -28,7 +28,9 @@ export function parseTxnAsERC20Transfer(web3Client, txn, contractAddress) {
         && (txn.to.toLowerCase() === contractAddress)
         // `txn` should have 1 and only 1 log
         && txn.logs && (txn.logs.length === 1)) {
-        return parseLogAsDockERC20Transfer(web3Client, txn.logs[0]);
+        const transfer = parseLogAsDockERC20Transfer(web3Client, txn.logs[0]);
+        transfer.blockNumber = txn.blockNumber;
+        return transfer;
     }
     throw new Error('Not a ERC-20 transfer for the contract')
 }
@@ -49,9 +51,9 @@ export async function isTxnConfirmed(web3Client, txn) {
     return isTxnConfirmedAsOf(txn, blockNumber);
 }
 
-export function isTxnConfirmedAsOf(txn, blockNumber) {
+export function isTxnConfirmedAsOf(txn, refBlockNumber) {
     if (txn.blockNumber && Number.isSafeInteger(txn.blockNumber)) {
-        const age = blockNumber - (txn.blockNumber + parseInt(process.env.ETH_TXN_CONFIRMATION_BLOCKS));
+        const age = refBlockNumber - (txn.blockNumber + parseInt(process.env.ETH_TXN_CONFIRMATION_BLOCKS));
         return age > 0;
     }
     // In case txn was excluded from chain due to reorg

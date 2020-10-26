@@ -18,7 +18,7 @@ describe('Node interaction', () => {
 
     test('Migrate', async () => {
         const blockHash = await nodeClient.migrate([['36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN', 100]]);
-        console.log(blockHash.toString());
+        console.log(blockHash);
     }, 20000);
 
     afterAll(async (done) => {

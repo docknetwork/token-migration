@@ -1,7 +1,7 @@
 // Tools for interacting with the database
 
 import {Pool as PgPool} from 'pg';
-import {REQ_STATUS} from "./constants";
+import {REQ_STATUS} from './constants';
 import {isBlacklistedAddress} from './util';
 
 require('dotenv').config();
@@ -79,7 +79,7 @@ export async function getPendingMigrationRequests(dbClient) {
 }
 
 async function setRequestStatus(dbClient, ethAddr, txnHash, status) {
-    const sql = `UPDATE public.requests SET status = ${status} WHERE ethAddr = ${ethAddr} AND txnHash = ${txnHash}`;
+    const sql = `UPDATE public.requests SET status = ${status} WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }
 
@@ -88,10 +88,20 @@ export async function markRequestInvalid(dbClient, ethAddr, txnHash) {
 }
 
 export async function markRequestParsed(dbClient, ethAddr, txnHash, erc20) {
-    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.TXN_PARSED}, erc20 = ${erc20} WHERE ethAddr = ${ethAddr} AND txnHash = ${txnHash}`;
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.TXN_PARSED}, erc20 = '${erc20}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }
 
 export async function markRequestConfirmed(dbClient, ethAddr, txnHash) {
     return setRequestStatus(dbClient, ethAddr, txnHash, REQ_STATUS.TXN_CONFIRMED);
+}
+
+export async function markRequestParsedAndConfirmed(dbClient, ethAddr, txnHash, erc20) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.TXN_CONFIRMED}, erc20 = '${erc20}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+    return dbClient.query(sql);
+}
+
+export async function markRequestDone(dbClient, ethAddr, txnHash, mainnetTxnHash, mainnetTokens) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.MIGRATION_DONE}, mainnet_txn_hash = '${mainnetTxnHash}', mainnet_tokens = '${mainnetTokens}' WHERE eth_address = '${ethAddr}' AND 'eth_txn_hash = '${txnHash}'`;
+    return dbClient.query(sql);
 }

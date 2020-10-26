@@ -29,7 +29,7 @@ export class DockNodeClient {
         try {
             const { status } = await this.handle.signAndSend(txn, false);
             this.clearKeypair(keyring, keypair);
-            return status.asInBlock;
+            return status.asInBlock.toString();
         } catch (e) {
             this.clearKeypair(keyring, keypair);
             throw new Error(`Migration failed with error ${e}`);
@@ -47,7 +47,7 @@ export class DockNodeClient {
             throw new Error(`Migrator's address set in config ${address} is not a migrator`)
         }
         // allowedMigrations is a u16 so safe to convert to JS number
-        return [allowedMigrations.value.toNumber(), balance.data.free];
+        return [allowedMigrations.value, balance.data.free];
     }
 
     clearKeypair(keyring, keypair) {

@@ -39,7 +39,6 @@ export const REQ_STATUS = {
     TXN_PARSED: 1,
     // Sufficient confirmations
     TXN_CONFIRMED: 2,
-    ATTEMPTING_MIGRATION: 3,
     // Migration is complete, leaving some gap to fill potential intermediate states
     MIGRATION_DONE: 10,
 }

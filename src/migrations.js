@@ -9,14 +9,15 @@ import {
 import {fromERC20ToDockTokens, getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './eth-txn-utils'
 import {REQ_STATUS} from "./constants";
 import {toHexWithPrefix} from "./util";
+import {BN} from 'bn.js';
 
 // Attempt to migrate requests which are confirmed
-export async function migrateConfirmedRequests(web3Client, dockNodeClient, dbReqs, allowedMigrations, balanceAsBn) {
+export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMigrations, balanceAsBn) {
     // For reqs as confirmed txns, send migration request immediately
     // Try to send migration for maximum amount, sort in descending order.
     const confirmed = dbReqs.map((r) => {
         const n = r;
-        n.erc20 = new web3Client.utils.BN(n.erc20);
+        n.erc20 = new BN(n.erc20);
         return n;
     })
     confirmed.sort(function(a, b) {
@@ -29,7 +30,7 @@ export async function migrateConfirmedRequests(web3Client, dockNodeClient, dbReq
     });
 
     // Find out which and how many reqs will be migrated
-    let accum = new web3Client.utils.BN("0");
+    let accum = new BN("0");
     let selected = 0;
     while (selected < confirmed.length) {
         if (selected >= allowedMigrations) {
@@ -37,7 +38,7 @@ export async function migrateConfirmedRequests(web3Client, dockNodeClient, dbReq
         }
         // Mainnet balance is intentionally computed just before migration is being done as the mainnet balance can
         // include time-dependent bonus and only till the bonus pool is not empty.
-        const mainnetBal = fromERC20ToDockTokens(web3Client, confirmed[selected].erc20);
+        const mainnetBal = fromERC20ToDockTokens(confirmed[selected].erc20);
         const temp = accum.add(mainnetBal);
         if (balanceAsBn.gte(temp)) {
             // Sufficient balance to transfer as there is no fee for migrations
@@ -98,14 +99,14 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     // entire loop as they might have too much balance.
     if (reqByStatus[REQ_STATUS.TXN_CONFIRMED] && (reqByStatus[REQ_STATUS.TXN_CONFIRMED].length > 0)) {
         try {
-            const [blockHash, migrated, balanceUsedInMigration] = await migrateConfirmedRequests(web3Client, dockNodeClient, reqByStatus[REQ_STATUS.TXN_CONFIRMED], allowedMigrations, balanceAsBn);
+            const [blockHash, migrated, balanceUsedInMigration] = await migrateConfirmedRequests(dockNodeClient, reqByStatus[REQ_STATUS.TXN_CONFIRMED], allowedMigrations, balanceAsBn);
             // Update remaining balance and allowed confirmedReqs
             balanceAsBn = balanceAsBn.sub(balanceUsedInMigration);
             allowedMigrations -= migrated.length;
             // Update status in DB
             await updateMigratedRequestsInDb(dbClient, blockHash, migrated);
         } catch (e) {
-            console.error(`Migration attempt of confirmed requests failed with error ${e}`)
+            console.warn(`Migration attempt of confirmed requests failed with error ${e}`)
         }
     }
 
@@ -162,7 +163,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     if (confirmedReqs.length > 0) {
         // Note: If the migrator's address is used outside of this code then there is a chance that value of `allowedMigrations` won't be
         // correct between now and previous invocation of `migrateConfirmedRequests` in this function
-        const [blockHash, migrated, ] = await migrateConfirmedRequests(web3Client, dockNodeClient, confirmedReqs, allowedMigrations, balanceAsBn);
+        const [blockHash, migrated, ] = await migrateConfirmedRequests(dockNodeClient, confirmedReqs, allowedMigrations, balanceAsBn);
         await updateMigratedRequestsInDb(dbClient, blockHash, migrated);
     }
 }

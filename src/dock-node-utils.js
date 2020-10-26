@@ -47,7 +47,7 @@ export class DockNodeClient {
             throw new Error(`Migrator's address set in config ${address} is not a migrator`)
         }
         // allowedMigrations is a u16 so safe to convert to JS number
-        return [allowedMigrations.value, balance.data.free];
+        return [allowedMigrations.value.toNumber(), balance.data.free];
     }
 
     clearKeypair(keyring, keypair) {

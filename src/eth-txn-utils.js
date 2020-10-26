@@ -1,5 +1,6 @@
 // Fetch a txn receipt using its hash and try to parse it as a Dock ERC-20 `transfer`
-import Web3 from "web3";
+import Web3 from 'web3';
+import BN from 'bn.js';
 import {TRANSFER_EVENT_TYPE} from "./constants";
 
 export async function getTransactionAsDockERC20Transfer(web3Client, txnHash) {
@@ -14,7 +15,7 @@ export async function getTransactionAsDockERC20TransferToVault(web3Client, txnHa
 }
 
 // Given a txn receipt, try to parse it as a `transfer` of Dock's ERC-20 contract
-// Returns an object {from: <sender address>, to: <recip address>, value: <amount in erc20>}
+// Returns an object {from: <sender address>, to: <recip address>, value: <amount in erc20>, blockNumber: <block number of transfer>}
 export function parseTxnAsDockERC20Transfer(web3Client, txn) {
     return parseTxnAsERC20Transfer(web3Client, txn, process.env.DOCK_ERC_20_ADDR);
 }
@@ -28,7 +29,7 @@ export function parseTxnAsERC20Transfer(web3Client, txn, contractAddress) {
         && (txn.to.toLowerCase() === contractAddress)
         // `txn` should have 1 and only 1 log
         && txn.logs && (txn.logs.length === 1)) {
-        const transfer = parseLogAsDockERC20Transfer(web3Client, txn.logs[0]);
+        const transfer = parseLogAsERC20Transfer(web3Client, txn.logs[0]);
         transfer.blockNumber = txn.blockNumber;
         return transfer;
     }
@@ -63,7 +64,7 @@ export function isTxnConfirmedAsOf(txn, refBlockNumber) {
 
 // Try to parse the log as the `Transfer` event of contract
 // The consumer of this function should check that the recipient is Dock's vault address
-function parseLogAsDockERC20Transfer(web3Client, log) {
+function parseLogAsERC20Transfer(web3Client, log) {
     try {
         const transfer = web3Client.eth.abi.decodeLog(
             TRANSFER_EVENT_TYPE,
@@ -89,10 +90,10 @@ export async function getTransactionWithLogs(web3Client, txnHash, onlySuccessful
 }
 
 // Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
-export function fromERC20ToDockTokens(web3Client, amountInERC20) {
-    const ercBN = new web3Client.utils.BN(amountInERC20);
+export function fromERC20ToDockTokens(amountInERC20) {
+    const ercBN = new BN(amountInERC20);
     // Dock mainnet has 6 decimal places, ERC-20 has 18
-    return ercBN.div(new web3Client.utils.BN('1000000000000'))
+    return ercBN.div(new BN('1000000000000'))
 }
 
 export function getNewWeb3MainnetClient() {

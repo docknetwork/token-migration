@@ -64,6 +64,3 @@ CREATE INDEX "Status"
     INCLUDE(status)
     TABLESPACE pg_default;
 ```
-
-# TODO:
-Import BN library and replace usages of web3.utils.BN with BN. This will remove the annonying need of web3 as argument.

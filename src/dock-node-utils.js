@@ -50,6 +50,12 @@ export class DockNodeClient {
         return [allowedMigrations.value.toNumber(), balance.data.free];
     }
 
+    // Returns free balance of given account
+    async getBalance(address) {
+        const balance = await this.handle.api.query.system.account(address);
+        return balance.data.free;
+    }
+
     clearKeypair(keyring, keypair) {
         // TODO: Is `lock` and `removePair` sufficient to zero out the key? Need to look
         // `lock` sets the secret key to empty byte array

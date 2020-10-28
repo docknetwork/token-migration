@@ -2,7 +2,7 @@
 
 import {Pool as PgPool} from 'pg';
 import {REQ_STATUS} from './constants';
-import {isBlacklistedAddress} from './util';
+import {isBlacklistedAddress, removePrefixFromHex} from './util';
 
 require('dotenv').config();
 
@@ -38,7 +38,7 @@ export class DBClient {
 
 export async function getRequestStatus(dbClient, address, txnHash) {
     const sql = 'SELECT status FROM public.requests WHERE eth_address = $1 AND eth_txn_hash = $2 LIMIT 1';
-    const values = [address, txnHash];
+    const values = [removePrefixFromHex(address), removePrefixFromHex(txnHash)];
 
     let res;
     try {
@@ -58,7 +58,7 @@ export async function getRequestStatus(dbClient, address, txnHash) {
 export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature) {
     const sql = 'INSERT INTO public.requests(eth_address, eth_txn_hash, mainnet_address, status, signature) VALUES($1, $2, $3, $4, $5) RETURNING *';
     const status = isBlacklistedAddress(ethAddress) ? REQ_STATUS.INVALID_BLACKLIST : REQ_STATUS.SIG_VALID;
-    const values = [ethAddress, txnHash, mainnetAddress, status, signature];
+    const values = [removePrefixFromHex(ethAddress), removePrefixFromHex(txnHash), mainnetAddress, status, removePrefixFromHex(signature)];
     try {
         const res = await dbClient.query(sql, values);
         return res.rows[0];
@@ -102,6 +102,6 @@ export async function markRequestParsedAndConfirmed(dbClient, ethAddr, txnHash, 
 }
 
 export async function markRequestDone(dbClient, ethAddr, txnHash, mainnetTxnHash, mainnetTokens) {
-    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.MIGRATION_DONE}, mainnet_txn_hash = '${mainnetTxnHash}', mainnet_tokens = '${mainnetTokens}' WHERE eth_address = '${ethAddr}' AND 'eth_txn_hash = '${txnHash}'`;
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.MIGRATION_DONE}, mainnet_txn_hash = '${mainnetTxnHash}', mainnet_tokens_given = '${mainnetTokens}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }

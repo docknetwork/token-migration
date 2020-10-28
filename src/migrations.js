@@ -8,7 +8,7 @@ import {
 } from "./db-utils";
 import {fromERC20ToDockTokens, getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './eth-txn-utils'
 import {REQ_STATUS} from "./constants";
-import {toHexWithPrefix} from "./util";
+import {addPrefixToHex, removePrefixFromHex} from "./util";
 import {BN} from 'bn.js';
 
 // Attempt to migrate requests which are confirmed
@@ -75,16 +75,20 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
 
 // Post migration, update requests in DB
 async function updateMigratedRequestsInDb(dbClient, blockHash, migrated) {
+    const hash = removePrefixFromHex(blockHash);
     // Update DB
     const dbReqPromises = [];
     migrated.forEach((req) => {
-        dbReqPromises.push(markRequestDone(dbClient, req.eth_address, req.eth_txn_hash, blockHash, req.mainnet_tokens));
+        dbReqPromises.push(markRequestDone(dbClient, req.eth_address, req.eth_txn_hash, hash, req.mainnet_tokens));
     });
     await Promise.all(dbReqPromises);
 }
 
+// TODO: A better alternative to console.info and console.warn here are using an external logging service
+// Process any pending migration requests, includes all (confirmed and unconfirmed) valid requestsHe
 export async function processPendingRequests(dbClient, web3Client, dockNodeClient) {
     const requests = await getPendingMigrationRequests(dbClient);
+    // Group requests by status
     const reqByStatus = requests.reduce(function (grp, r) {
         (grp[r.status] = grp[r.status] || []).push(r);
         return grp;
@@ -98,6 +102,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     // Attempt to migrate requests with already confirmed txns. Any confirmed reqs not migrated will not be touched during this
     // entire loop as they might have too much balance.
     if (reqByStatus[REQ_STATUS.TXN_CONFIRMED] && (reqByStatus[REQ_STATUS.TXN_CONFIRMED].length > 0)) {
+        console.info(`Found ${reqByStatus[REQ_STATUS.TXN_CONFIRMED].length} confirmed requests. Trying to migrate now`);
         try {
             const [blockHash, migrated, balanceUsedInMigration] = await migrateConfirmedRequests(dockNodeClient, reqByStatus[REQ_STATUS.TXN_CONFIRMED], allowedMigrations, balanceAsBn);
             // Update remaining balance and allowed confirmedReqs
@@ -113,9 +118,11 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     const reqsWithValidSig = reqByStatus[REQ_STATUS.SIG_VALID] || [];
     const reqsWithValidTxn = reqByStatus[REQ_STATUS.TXN_PARSED] || [];
 
+    console.info(`Found ${reqsWithValidSig.length + reqsWithValidTxn.length} unconfirmed requests. Parse and check for confirmation.`);
+
     // Fetch transactions for unconfirmed requests which are valid ERC-20 transfers to the Vault address
     const unconfirmedReqs = (reqsWithValidSig).concat(reqsWithValidTxn);
-    const txns = await Promise.allSettled(unconfirmedReqs.map((r) => getTransactionAsDockERC20TransferToVault(web3Client, toHexWithPrefix(r.eth_txn_hash))));
+    const txns = await Promise.allSettled(unconfirmedReqs.map((r) => getTransactionAsDockERC20TransferToVault(web3Client, addPrefixToHex(r.eth_txn_hash))));
     // console.log(txns);
 
     // Need current block number for checking confirmation
@@ -126,13 +133,13 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     // Tracks reqs which are confirmed
     const confirmedReqs = [];
 
-    // Tracks reqs which are not yet confirmed
-    const dbWritesForUnconfirmedReqs = [];
+    // Tracks reqs which are not yet migrated
+    const dbWritesForUnMigratedReqs = [];
 
     // Parse and check if any valid requests are confirmed and can be sent for migration
     reqsWithValidSig.forEach((req, index) => {
         if (txns[index].status === "rejected") {
-            dbWritesForUnconfirmedReqs.push(markRequestInvalid(dbClient, req.eth_address, req.eth_txn_hash))
+            dbWritesForUnMigratedReqs.push(markRequestInvalid(dbClient, req.eth_address, req.eth_txn_hash))
         } else {
             const txn = txns[index].value;
             if (isTxnConfirmedAsOf(txn, currentBlockNumber)) {
@@ -140,12 +147,14 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
                 req.erc20 = txn.value;
                 // Note: Don't compute mainnet balance due to potential time dependent bonus.
                 confirmedReqs.push(req);
-                dbWritesForUnconfirmedReqs.push(markRequestParsedAndConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txn.value));
+                dbWritesForUnMigratedReqs.push(markRequestParsedAndConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txn.value));
             } else {
-                dbWritesForUnconfirmedReqs.push(markRequestParsed(dbClient, req.eth_address, req.eth_txn_hash, txn.value))
+                dbWritesForUnMigratedReqs.push(markRequestParsed(dbClient, req.eth_address, req.eth_txn_hash, txn.value))
             }
         }
     });
+
+    console.info(`Parsed ${reqsWithValidSig.length} requests, ${confirmedReqs.length} were confirmed`);
 
     // Check if any parsed requests are confirmed and can be sent for migration
     const txnListOffset = reqsWithValidSig.length;
@@ -153,12 +162,16 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
         if (isTxnConfirmedAsOf(txns[txnListOffset + index], currentBlockNumber)) {
             req.status = REQ_STATUS.TXN_CONFIRMED;
             confirmedReqs.push(req);
-            dbWritesForUnconfirmedReqs.push(markRequestConfirmed(dbClient, req.eth_address, req.eth_txn_hash))
+            dbWritesForUnMigratedReqs.push(markRequestConfirmed(dbClient, req.eth_address, req.eth_txn_hash))
         }
     });
 
+    console.info(`Checked ${reqsWithValidTxn.length} already parsed requests, total ${confirmedReqs.length} confirmed now`);
+
     // Update DB with status and erc-20 bal
-    await Promise.all(dbWritesForUnconfirmedReqs);
+    await Promise.all(dbWritesForUnMigratedReqs);
+
+    console.info(`Updating ${dbWritesForUnMigratedReqs.length} requests in DB before migration`)
 
     if (confirmedReqs.length > 0) {
         // Note: If the migrator's address is used outside of this code then there is a chance that value of `allowedMigrations` won't be

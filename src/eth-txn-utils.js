@@ -93,6 +93,7 @@ export async function getTransactionWithLogs(web3Client, txnHash, onlySuccessful
 export function fromERC20ToDockTokens(amountInERC20) {
     const ercBN = new BN(amountInERC20);
     // Dock mainnet has 6 decimal places, ERC-20 has 18
+    // Note: Loses some precision in case of less than 12 "0" least significant digits
     return ercBN.div(new BN('1000000000000'))
 }
 

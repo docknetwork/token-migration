@@ -64,3 +64,10 @@ CREATE INDEX "Status"
     INCLUDE(status)
     TABLESPACE pg_default;
 ```
+
+## Testing
+For running integration tests using Truffle, transpile the code with Babel first using command below. That will put the 
+transpiled code into `build` directory
+```
+yarn babel src -d build
+```

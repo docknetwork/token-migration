@@ -83,7 +83,7 @@ export function isBlacklistedAddress(ethAddr) {
 }
 
 // Add prefix '0x' to a hex string if not already. Doesn't check if string is hex or not
-export function toHexWithPrefix(string) {
+export function addPrefixToHex(string) {
   if (!string.startsWith('0x')) {
     return '0x' + string;
   }
@@ -91,7 +91,7 @@ export function toHexWithPrefix(string) {
 }
 
 // Remove prefix '0x' from a hex string if present. Doesn't check if string is hex or not
-export function toHexWithoutPrefix(string) {
+export function removePrefixFromHex(string) {
   if (string.startsWith('0x')) {
     return string.slice(2);
   }

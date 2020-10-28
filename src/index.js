@@ -86,6 +86,4 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
 
   // Listen for status route
   server.post('/status', onStatusRequest);
-
-  // TODO: Add check status API
 });

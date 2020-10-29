@@ -10,6 +10,7 @@ import {fromERC20ToDockTokens, getTransactionAsDockERC20TransferToVault, isTxnCo
 import {REQ_STATUS} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
 import {BN} from 'bn.js';
+import {alarmMigratorIfNeeded} from "./email-utils";
 
 // Attempt to migrate requests which are confirmed
 export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMigrations, balanceAsBn) {
@@ -98,6 +99,8 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     let [allowedMigrations, balance] = await dockNodeClient.getMigratorDetails();
     // Convert balance to BigNumber as ERC-20 balance is used a big BigNumber
     let balanceAsBn = balance.toBn();
+
+    await alarmMigratorIfNeeded(allowedMigrations, balanceAsBn);
 
     // Attempt to migrate requests with already confirmed txns. Any confirmed reqs not migrated will not be touched during this
     // entire loop as they might have too much balance.

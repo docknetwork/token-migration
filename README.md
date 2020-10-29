@@ -25,6 +25,20 @@ SCHEDULER_FREQ = 60000
 DOCK_NODE_ENDPOINT = <RPC endpoint of node>
 MIGRATOR_ADDR = <Migrator's address>
 MIGRATOR_SK = <Migrator's secret URI>
+# Minimum balance a migrator must have else emails will be sent
+MIGRATOR_MIN_BALANCE = 1000000000
+# Minimum transfers a migrator must be allowed else emails will be sent
+MIGRATOR_MIN_ALLOWED = 50
+# If a migrator's balance or allowed transfers go below certain point, email will be sent below
+MIGRATOR_ALARM_EMAIL_FROM = <Sender of alarm email>
+# Comma separaed list of alarm email recipeints.
+MIGRATOR_ALARM_EMAIL_TO = <Recipeints of alarm email>
+# Milliseconds to wait before sending next email
+MIGRATOR_ALARM_WAIT = 900000
+# AWS credentials
+AWS_ACCESS_ID = <Need for sending email>
+AWS_SECRET_KEY = <Need for sending email>
+AWS_SES_EMAIL_REGION = <Need for sending email>
 ```
 
 ## Running with Infura

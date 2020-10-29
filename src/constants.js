@@ -42,3 +42,5 @@ export const REQ_STATUS = {
     // Migration is complete, leaving some gap to fill potential intermediate states
     MIGRATION_DONE: 10,
 }
+
+export const configFileName = 'config.json'

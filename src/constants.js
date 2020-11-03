@@ -39,8 +39,12 @@ export const REQ_STATUS = {
     TXN_PARSED: 1,
     // Sufficient confirmations
     TXN_CONFIRMED: 2,
-    // Migration is complete, leaving some gap to fill potential intermediate states
-    MIGRATION_DONE: 10,
+    // Initial transfer (excluding bonus) is done.
+    INITIAL_TRANSFER_DONE: 3,
+    // Bonus has been calculated but not yet sent.
+    BONUS_CALCULATED: 4,
+    // Bonus sent
+    BONUS_TRANSFERRED: 5
 }
 
 export const configFileName = 'config.json'

@@ -73,7 +73,7 @@ export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnH
 }
 
 export async function getPendingMigrationRequests(dbClient) {
-    const sql = `SELECT * FROM public.requests WHERE status >= ${REQ_STATUS.SIG_VALID} AND status < ${REQ_STATUS.MIGRATION_DONE}`;
+    const sql = `SELECT * FROM public.requests WHERE status >= ${REQ_STATUS.SIG_VALID} AND status < ${REQ_STATUS.INITIAL_TRANSFER_DONE}`;
     const res = await dbClient.query(sql);
     return res.rows;
 }
@@ -102,6 +102,6 @@ export async function markRequestParsedAndConfirmed(dbClient, ethAddr, txnHash, 
 }
 
 export async function markRequestDone(dbClient, ethAddr, txnHash, mainnetTxnHash, mainnetTokens) {
-    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.MIGRATION_DONE}, mainnet_txn_hash = '${mainnetTxnHash}', mainnet_tokens_given = '${mainnetTokens}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.INITIAL_TRANSFER_DONE}, mainnet_txn_hash = '${mainnetTxnHash}', mainnet_tokens_given = '${mainnetTokens}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }

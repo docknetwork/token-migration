@@ -8,6 +8,10 @@ require('dotenv').config();
 
 let dbClient;
 
+async function onMigrationWithBonusRequest(req, res) {
+
+}
+
 async function onMigrationRequest(req, res) {
   try {
     // The signature needs to be persisted so that can be used in potential disputes resolution later.
@@ -83,6 +87,9 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
 
   // Listen for migration route
   server.post('/migrate', onMigrationRequest);
+
+  // Listen for migration route
+  server.post('/migrate_with_bonus', onMigrationWithBonusRequest);
 
   // Listen for status route
   server.post('/status', onStatusRequest);

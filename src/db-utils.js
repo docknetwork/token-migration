@@ -55,10 +55,10 @@ export async function getRequestStatus(dbClient, address, txnHash) {
 }
 
 // Track a new migration request in DB. Will throw error if request already tracked else return the inserted row
-export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature) {
-    const sql = 'INSERT INTO public.requests(eth_address, eth_txn_hash, mainnet_address, status, signature) VALUES($1, $2, $3, $4, $5) RETURNING *';
+export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature, isVesting = null) {
+    const sql = 'INSERT INTO public.requests(eth_address, eth_txn_hash, mainnet_address, status, signature, is_vesting) VALUES($1, $2, $3, $4, $5, $6) RETURNING *';
     const status = isBlacklistedAddress(ethAddress) ? REQ_STATUS.INVALID_BLACKLIST : REQ_STATUS.SIG_VALID;
-    const values = [removePrefixFromHex(ethAddress), removePrefixFromHex(txnHash), mainnetAddress, status, removePrefixFromHex(signature)];
+    const values = [removePrefixFromHex(ethAddress), removePrefixFromHex(txnHash), mainnetAddress, status, removePrefixFromHex(signature), isVesting];
     try {
         const res = await dbClient.query(sql, values);
         return res.rows[0];
@@ -78,13 +78,15 @@ export async function getPendingMigrationRequests(dbClient) {
     return res.rows;
 }
 
-async function setRequestStatus(dbClient, ethAddr, txnHash, status) {
-    const sql = `UPDATE public.requests SET status = ${status} WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
-    return dbClient.query(sql);
+export async function getPendingBonusRequests(dbClient) {
+    const sql = `SELECT * FROM public.requests WHERE status = ${REQ_STATUS.INITIAL_TRANSFER_DONE} AND is_vesting IS NOT NULL`;
+    const res = await dbClient.query(sql);
+    return res.rows;
 }
 
 export async function markRequestInvalid(dbClient, ethAddr, txnHash) {
-    return setRequestStatus(dbClient, ethAddr, txnHash, REQ_STATUS.INVALID);
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.INVALID} WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+    return dbClient.query(sql);
 }
 
 export async function markRequestParsed(dbClient, ethAddr, txnHash, erc20) {
@@ -92,16 +94,22 @@ export async function markRequestParsed(dbClient, ethAddr, txnHash, erc20) {
     return dbClient.query(sql);
 }
 
-export async function markRequestConfirmed(dbClient, ethAddr, txnHash) {
-    return setRequestStatus(dbClient, ethAddr, txnHash, REQ_STATUS.TXN_CONFIRMED);
-}
-
-export async function markRequestParsedAndConfirmed(dbClient, ethAddr, txnHash, erc20) {
-    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.TXN_CONFIRMED}, erc20 = '${erc20}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+export async function markRequestConfirmed(dbClient, ethAddr, txnHash, blockNumber) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.TXN_CONFIRMED}, eth_txn_block_no = ${blockNumber} WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }
 
-export async function markRequestDone(dbClient, ethAddr, txnHash, mainnetTxnHash, mainnetTokens) {
-    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.INITIAL_TRANSFER_DONE}, mainnet_txn_hash = '${mainnetTxnHash}', mainnet_tokens_given = '${mainnetTokens}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+export async function markRequestParsedAndConfirmed(dbClient, ethAddr, txnHash, erc20, blockNumber) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.TXN_CONFIRMED}, erc20 = '${erc20}', eth_txn_block_no = ${blockNumber} WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+    return dbClient.query(sql);
+}
+
+export async function markInitialMigrationDone(dbClient, ethAddr, txnHash, migrationTxnHash, migrationTokens) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.INITIAL_TRANSFER_DONE}, migration_txn_hash = '${migrationTxnHash}', migration_tokens = '${migrationTokens}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+    return dbClient.query(sql);
+}
+
+export async function updateBonuses(dbClient, ethAddr, txnHash, swapBonus, vestingBonus) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.BONUS_CALCULATED}, swap_bonus_tokens = '${swapBonus}', vesting_bonus_tokens = '${vestingBonus}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }

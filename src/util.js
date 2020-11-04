@@ -20,7 +20,7 @@ export function validateStatusRequest(reqBody) {
     throw new Error(`txnHash must be of size ${TXN_HASH_SIZE*2} chars but was ${txnHash.length} chars`);
   }
 
-  // Ensure address isnt blacklisted
+  // Ensure address isn't blacklisted
   if (isBlacklistedAddress(address)) {
     throw new Error('Address is blacklisted');
   }
@@ -29,8 +29,8 @@ export function validateStatusRequest(reqBody) {
 }
 
 // Parse request body and verify signature. Return mainnet address, ethereum address, transaction hash and signature
-export function validateMigrationRequest(reqBody) {
-  const [payloadBytes, sigBytes] = parseMigrationRequest(reqBody);
+export function validateMigrationRequest(reqBody, withBonus = false) {
+  const [payloadBytes, sigBytes] = parseMigrationRequest(reqBody, withBonus);
   const mainnetAddress = base58.encode(payloadBytes.slice(0, MAINNET_ADDRESS_SIZE));
   // The address should be valid for the configured network type
   if (!validateAddress(mainnetAddress, process.env.DOCK_NETWORK_TYPE)) {
@@ -38,7 +38,24 @@ export function validateMigrationRequest(reqBody) {
   }
   const ethAddress = verifyPayloadSig(payloadBytes, sigBytes);
   const txnHash = Buffer.from(payloadBytes.slice(MAINNET_ADDRESS_SIZE, MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE)).toString('hex');
-  return [mainnetAddress, ethAddress, txnHash, sigBytes.toString('hex')];
+
+  console.log(payloadBytes.length, payloadBytes.slice(0, MAINNET_ADDRESS_SIZE).length, payloadBytes.slice(MAINNET_ADDRESS_SIZE, MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE).length);
+  console.log(payloadBytes.slice(0, 100).length);
+
+  let isVesting;
+  if (withBonus) {
+    const lastByte = payloadBytes.slice(MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE, MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE+1)[0];
+    if (lastByte === 0) {
+      isVesting = false;
+    } else if (lastByte === 1) {
+      isVesting = true;
+    } else {
+      throw new Error(`Vesting indicator must have been 0 or 1 but was ${lastByte}`);
+    }
+  } else {
+    isVesting = null;
+  }
+  return [mainnetAddress, ethAddress, txnHash, sigBytes.toString('hex'), isVesting];
 }
 
 // Verify signature on payload and return the address signing the payload.
@@ -50,9 +67,9 @@ export function verifyPayloadSig(payloadBytes, sigBytes) {
 }
 
 // Parse request body containing payload and signature and return payload without checksum and signature both as Buffers
-export function parseMigrationRequest(reqBody) {
+export function parseMigrationRequest(reqBody, withBonus = false) {
   const { payload, signature } = reqBody;
-  let sigBytes, payloadBytes, sig, address, txnHash;
+  let sigBytes, payloadBytes;
 
   // Payload is in format <Mainnet address of 35 bytes><Eth txn hash of 32 bytes>
   try {
@@ -65,8 +82,10 @@ export function parseMigrationRequest(reqBody) {
   } catch (e) {
     throw new Error(`Cannot parse ${payload} as base58-check`);
   }
-  if (payloadBytes.length !== PAYLOAD_SIZE) {
-    throw new Error(`Payload must be of size ${PAYLOAD_SIZE} bytes but was ${payloadBytes.length} bytes`);
+
+  const payloadSize = PAYLOAD_SIZE + (withBonus ? 1 : 0);
+  if (payloadBytes.length !== payloadSize) {
+    throw new Error(`Payload must be of size ${payloadSize} bytes but was ${payloadBytes.length} bytes`);
   }
 
   if (sigBytes.length !== SIG_SIZE) {
@@ -96,4 +115,26 @@ export function removePrefixFromHex(string) {
     return string.slice(2);
   }
   return string
+}
+
+// Check if bonus window is closed
+function isBonusWindowClosed() {
+  return new Date() > new Date(parseInt(process.env.BONUS_ENDS_AT, 10))
+}
+
+// Check if migration is over
+function isMigrationOver() {
+  return new Date() > new Date(parseInt(process.env.MIGRATION_ENDS_AT, 10))
+}
+
+// Check if bonus window is closed if trying for bonus and raise error if window closed
+// Check if migration is over if not trying for bonus and raise error if migration over
+export function checkReqWindow(withBonus) {
+  if (withBonus && isBonusWindowClosed()) {
+    throw new Error(`Bonus window is closed`)
+  }
+
+  if (!withBonus && isMigrationOver()) {
+    throw new Error(`Migration is over`)
+  }
 }

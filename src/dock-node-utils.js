@@ -28,11 +28,11 @@ export class DockNodeClient {
 
         try {
             const { status } = await this.handle.signAndSend(txn, false);
-            this.clearKeypair(keyring, keypair);
             return status.asInBlock.toString();
         } catch (e) {
-            this.clearKeypair(keyring, keypair);
             throw new Error(`Migration failed with error ${e}`);
+        } finally {
+            this.clearKeypair(keyring, keypair);
         }
     }
 

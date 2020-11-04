@@ -81,8 +81,7 @@ CREATE TABLE public.requests
     eth_txn_hash character(64) COLLATE pg_catalog."default" NOT NULL,
     mainnet_address character(48) COLLATE pg_catalog."default" NOT NULL,
     signature character(130) COLLATE pg_catalog."default" NOT NULL,
-    is_vesting boolean NOT NULL,
-    will_get_bonus boolean NOT NULL,
+    is_vesting boolean,
     status smallint NOT NULL,
     erc20 varchar(80),
     eth_txn_block_no varchar(15), 
@@ -109,4 +108,9 @@ For running integration tests using Truffle, transpile the code with Babel first
 transpiled code into `build` directory
 ```
 yarn babel src -d build
+```
+
+Then run tests as
+```
+truffle test
 ```

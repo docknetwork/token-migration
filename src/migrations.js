@@ -1,30 +1,53 @@
 // Check if any pending requests and try to do migration
 import {
-    getPendingMigrationRequests, markRequestConfirmed,
-    markRequestDone,
+    getPendingMigrationRequests,
+    markInitialMigrationDone,
+    markRequestConfirmed,
     markRequestInvalid,
     markRequestParsed,
     markRequestParsedAndConfirmed
 } from "./db-utils";
-import {fromERC20ToDockTokens, getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './eth-txn-utils'
+import {getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './eth-txn-utils'
 import {REQ_STATUS} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
-import {BN} from 'bn.js';
+import BN from 'bn.js';
 import {alarmMigratorIfNeeded} from "./email-utils";
+
+// Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
+export function fromERC20ToDockTokens(amountInERC20) {
+    const ercBN = new BN(amountInERC20);
+    // Dock mainnet has 6 decimal places, ERC-20 has 18
+    // Note: Loses some precision in case of less than 12 "0" least significant digits
+    return ercBN.div(new BN('1000000000000'))
+}
+
+// Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN. Considers whether vesting or not.
+// In the case where vesting does not apply or is not opted, the amount is returned as it is else the amount is halved
+// followed by flooring in case amount was odd
+export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
+    const dockTokens = fromERC20ToDockTokens(amountInERC20);
+    if (isVesting === true) {
+        // If vesting, take the floor after dividing by 2
+        return dockTokens.shrn(1);
+    } else {
+        return dockTokens;
+    }
+}
 
 // Attempt to migrate requests which are confirmed
 export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMigrations, balanceAsBn) {
     // For reqs as confirmed txns, send migration request immediately
-    // Try to send migration for maximum amount, sort in descending order.
     const confirmed = dbReqs.map((r) => {
         const n = r;
-        n.erc20 = new BN(n.erc20);
+        // Calculate tokens to be given now, i.e. before bonus
+        n.migration_tokens = erc20ToInitialMigrationTokens(n.erc20, n.is_vesting);
         return n;
     })
+    // Try to send migration for maximum amount, sort in descending order.
     confirmed.sort(function(a, b) {
-        if (a.erc20.lt(b.erc20)) {
+        if (a.migration_tokens.lt(b.migration_tokens)) {
             return 1;
-        } else if (b.erc20.lt(a.erc20)) {
+        } else if (b.migration_tokens.lt(a.migration_tokens)) {
             return -1;
         }
         return 0;
@@ -37,13 +60,8 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
         if (selected >= allowedMigrations) {
             break;
         }
-        // Mainnet balance is intentionally computed just before migration is being done as the mainnet balance can
-        // include time-dependent bonus and only till the bonus pool is not empty.
-        const mainnetBal = fromERC20ToDockTokens(confirmed[selected].erc20);
-        const temp = accum.add(mainnetBal);
+        const temp = accum.add(confirmed[selected].migration_tokens);
         if (balanceAsBn.gte(temp)) {
-            // Sufficient balance to transfer as there is no fee for migrations
-            confirmed[selected].mainnetBal = mainnetBal;
             accum = temp;
             selected++;
         } else {
@@ -60,7 +78,7 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
     }
 
     // Do the migration. Migration is atomic, either all reqs are migrated or none.
-    const recipients = confirmed.slice(0, selected).map((r) => [r.mainnet_address, r.mainnetBal.toString()]);
+    const recipients = confirmed.slice(0, selected).map((r) => [r.mainnet_address, r.migration_tokens.toString()]);
     const blockHash = await dockNodeClient.migrate(recipients);
 
     console.info(`Migrated ${recipients.length} requests in block ${blockHash}`);
@@ -80,7 +98,7 @@ async function updateMigratedRequestsInDb(dbClient, blockHash, migrated) {
     // Update DB
     const dbReqPromises = [];
     migrated.forEach((req) => {
-        dbReqPromises.push(markRequestDone(dbClient, req.eth_address, req.eth_txn_hash, hash, req.mainnet_tokens));
+        dbReqPromises.push(markInitialMigrationDone(dbClient, req.eth_address, req.eth_txn_hash, hash, req.mainnet_tokens));
     });
     await Promise.all(dbReqPromises);
 }
@@ -108,7 +126,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
         console.info(`Found ${reqByStatus[REQ_STATUS.TXN_CONFIRMED].length} confirmed requests. Trying to migrate now`);
         try {
             const [blockHash, migrated, balanceUsedInMigration] = await migrateConfirmedRequests(dockNodeClient, reqByStatus[REQ_STATUS.TXN_CONFIRMED], allowedMigrations, balanceAsBn);
-            // Update remaining balance and allowed confirmedReqs
+            // Update remaining balance and allowed migrations
             balanceAsBn = balanceAsBn.sub(balanceUsedInMigration);
             allowedMigrations -= migrated.length;
             // Update status in DB
@@ -150,7 +168,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
                 req.erc20 = txn.value;
                 // Note: Don't compute mainnet balance due to potential time dependent bonus.
                 confirmedReqs.push(req);
-                dbWritesForUnMigratedReqs.push(markRequestParsedAndConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txn.value));
+                dbWritesForUnMigratedReqs.push(markRequestParsedAndConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txn.value, txn.blockNumber));
             } else {
                 dbWritesForUnMigratedReqs.push(markRequestParsed(dbClient, req.eth_address, req.eth_txn_hash, txn.value))
             }
@@ -165,7 +183,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
         if (isTxnConfirmedAsOf(txns[txnListOffset + index], currentBlockNumber)) {
             req.status = REQ_STATUS.TXN_CONFIRMED;
             confirmedReqs.push(req);
-            dbWritesForUnMigratedReqs.push(markRequestConfirmed(dbClient, req.eth_address, req.eth_txn_hash))
+            dbWritesForUnMigratedReqs.push(markRequestConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txns[txnListOffset + index].blockNumber))
         }
     });
 

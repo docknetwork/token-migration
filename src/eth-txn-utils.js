@@ -1,6 +1,5 @@
 // Fetch a txn receipt using its hash and try to parse it as a Dock ERC-20 `transfer`
 import Web3 from 'web3';
-import BN from 'bn.js';
 import {TRANSFER_EVENT_TYPE} from "./constants";
 
 export async function getTransactionAsDockERC20Transfer(web3Client, txnHash) {
@@ -87,14 +86,6 @@ export async function getTransactionWithLogs(web3Client, txnHash, onlySuccessful
         throw new Error('Transaction was unsuccessful')
     }
     return txn;
-}
-
-// Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
-export function fromERC20ToDockTokens(amountInERC20) {
-    const ercBN = new BN(amountInERC20);
-    // Dock mainnet has 6 decimal places, ERC-20 has 18
-    // Note: Loses some precision in case of less than 12 "0" least significant digits
-    return ercBN.div(new BN('1000000000000'))
 }
 
 export function getNewWeb3MainnetClient() {

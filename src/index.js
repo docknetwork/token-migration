@@ -2,20 +2,18 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import slowDown from 'express-slow-down';
 import {DBClient, trackNewRequest, getRequestStatus} from './db-utils';
-import {validateStatusRequest, validateMigrationRequest} from "./util";
+import {validateStatusRequest, validateMigrationRequest, checkReqWindow} from "./util";
 
 require('dotenv').config();
 
 let dbClient;
 
-async function onMigrationWithBonusRequest(req, res) {
-
-}
-
-async function onMigrationRequest(req, res) {
+async function processMigrationReq(req, res, withBonus = false) {
   try {
+    checkReqWindow(withBonus);
+
     // The signature needs to be persisted so that can be used in potential disputes resolution later.
-    const [mainnetAddress, ethAddress, txnHash, signature] = await validateMigrationRequest(req.body)
+    const [mainnetAddress, ethAddress, txnHash, signature, isVesting] = await validateMigrationRequest(req.body, withBonus)
 
     // XXX: An attacked can submit arbitrary txn hashes with valid signatures on valid payloads. One way to stop them
     // is to fetch txn using hash during this call and reject if sender address does not match the address used in payload
@@ -23,7 +21,7 @@ async function onMigrationRequest(req, res) {
     // with these arbitrary txns or set them to a negative value indicating invalid to help in case someone genuinely used
     // wrong id. Going the former route now.
 
-    await trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature);
+    await trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature, withBonus ? isVesting : null);
     res.statusCode = 200;
     res.json({
       error: null,
@@ -34,6 +32,16 @@ async function onMigrationRequest(req, res) {
       error: e.toString(),
     });
   }
+}
+
+// For processing requests before bonus window closes
+async function onMigrationWithBonusRequest(req, res) {
+  await processMigrationReq(req, res, true);
+}
+
+// For processing requests after bonus window closes
+async function onMigrationRequest(req, res) {
+  await processMigrationReq(req, res, false);
 }
 
 async function onStatusRequest(req, res) {

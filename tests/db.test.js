@@ -14,13 +14,14 @@ describe('DB interaction', () => {
     }, 5000);
 
     test('Track request', async () => {
-        const reqs_0 = await getPendingMigrationRequests(dbClient);
+        const reqs0 = await getPendingMigrationRequests(dbClient);
 
         const addr = genRanHex(40);
         const hash = genRanHex(64);
         const r1 = await trackNewRequest(dbClient, '39QKJG54MzsG66GTjQwEwrZ6FEkXrEEVa4LsAt759UNrfYLm', addr, hash, genRanHex(128));
         // Inserted row has status valid
         expect(r1.status).toBe(REQ_STATUS.SIG_VALID);
+        expect(r1.is_vesting).toBe(null);
 
         // Repeat address but not txn hash
         const r2 = await trackNewRequest(dbClient, '39QKJG54MzsG66GTjQwEwrZ6FEkXrEEVa4LsAt759UNrfYLm', genRanHex(40), genRanHex(64), genRanHex(128));
@@ -32,12 +33,23 @@ describe('DB interaction', () => {
             .rejects
             .toThrow();
 
-        const reqs_1 = await getPendingMigrationRequests(dbClient);
-        expect(reqs_1.length - reqs_0.length).toBeGreaterThanOrEqual(2);
+        const reqs1 = await getPendingMigrationRequests(dbClient);
+        expect(reqs1.length - reqs0.length).toBe(2);
+
+        const r3 = await trackNewRequest(dbClient, '39QKJG54MzsG66GTjQwEwrZ6FEkXrEEVa4LsAt759UNrfYLm', genRanHex(40), genRanHex(64), genRanHex(128), true);
+        expect(r3.status).toBe(REQ_STATUS.SIG_VALID);
+        expect(r3.is_vesting).toBe(true);
+
+        const r4 = await trackNewRequest(dbClient, '39QKJG54MzsG66GTjQwEwrZ6FEkXrEEVa4LsAt759UNrfYLm', genRanHex(40), genRanHex(64), genRanHex(128), false);
+        expect(r4.status).toBe(REQ_STATUS.SIG_VALID);
+        expect(r4.is_vesting).toBe(false);
+
+        const reqs2 = await getPendingMigrationRequests(dbClient);
+        expect(reqs2.length - reqs1.length).toBe(2);
     });
 
     test('Track blacklisted request', async () => {
-        // Take a blaclkisted address
+        // Take a blacklisted address
         const blacklistedAddress = BLACKLISTED_ETH_ADDR[0];
         const r = await trackNewRequest(dbClient, '39QKJG54MzsG66GTjQwEwrZ6FEkXrEEVa4LsAt759UNrfYLm', blacklistedAddress, genRanHex(64), genRanHex(128));
         // Inserted row has status invalid

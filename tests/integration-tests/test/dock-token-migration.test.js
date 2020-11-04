@@ -1,4 +1,4 @@
-import {fromERC20ToDockTokens} from '../../../build/eth-txn-utils';
+import {erc20ToInitialMigrationTokens} from '../../../build/eth-txn-utils';
 import {DBClient, getRequestStatus, trackNewRequest} from "../../../build/db-utils";
 import {DockNodeClient} from "../../../build/dock-node-utils";
 import {processPendingRequests} from "../../../build/migrations";
@@ -55,7 +55,7 @@ contract("DockToken", accounts => {
         process.env.ETH_NODE_ENDPOINT = host;
     });
 
-    async function migrateTestHelper(accounts, web3, transferMechanism) {
+    async function migrateTestHelper(accounts, web3, transferMechanism, isVesting = null) {
         assert.equal(
             transferMechanism !== 'transfer' && transferMechanism !== 'transferFrom',
             false,
@@ -144,18 +144,18 @@ contract("DockToken", accounts => {
         const mainnetAddress4Bal = (await nodeClient.getBalance(mainnetAddress4)).toBn();
         const mainnetAddress5Bal = (await nodeClient.getBalance(mainnetAddress5)).toBn();
 
-        const totalMainnet = fromERC20ToDockTokens(amount1.toString())
-            .add(fromERC20ToDockTokens(amount2.toString()))
-            .add(fromERC20ToDockTokens(amount3.toString()))
-            .add(fromERC20ToDockTokens(amount4.toString()));
+        const totalMainnet = erc20ToInitialMigrationTokens(amount1.toString(), isVesting)
+            .add(erc20ToInitialMigrationTokens(amount2.toString(), isVesting))
+            .add(erc20ToInitialMigrationTokens(amount3.toString(), isVesting))
+            .add(erc20ToInitialMigrationTokens(amount4.toString(), isVesting));
 
 
         // Don't care about signature here
-        await trackNewRequest(dbClient, mainnetAddress1, accounts[1], txn1.tx, "")
-        await trackNewRequest(dbClient, mainnetAddress2, accounts[2], txn2.tx, "")
-        await trackNewRequest(dbClient, mainnetAddress3, accounts[3], txn3.tx, "")
-        await trackNewRequest(dbClient, mainnetAddress4, accounts[4], txn4.tx, "")
-        await trackNewRequest(dbClient, mainnetAddress5, accounts[5], txn5.tx, "")
+        await trackNewRequest(dbClient, mainnetAddress1, accounts[1], txn1.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress2, accounts[2], txn2.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress3, accounts[3], txn3.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress4, accounts[4], txn4.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress5, accounts[5], txn5.tx, "", isVesting)
 
         let [allowedMigrationsPre, balancePre] = await nodeClient.getMigratorDetails();
 
@@ -184,22 +184,22 @@ contract("DockToken", accounts => {
 
         // Requesters' Dock token balance should increase
         assert.equal(
-            mainnetAddress1PostBal.sub(mainnetAddress1Bal).eq(fromERC20ToDockTokens(amount1.toString())),
+            mainnetAddress1PostBal.sub(mainnetAddress1Bal).eq(erc20ToInitialMigrationTokens(amount1.toString(), isVesting)),
             true,
             `Wrong balance for address 1`
         );
         assert.equal(
-            mainnetAddress2PostBal.sub(mainnetAddress2Bal).eq(fromERC20ToDockTokens(amount2.toString())),
+            mainnetAddress2PostBal.sub(mainnetAddress2Bal).eq(erc20ToInitialMigrationTokens(amount2.toString(), isVesting)),
             true,
             `Wrong balance for address 2`
         );
         assert.equal(
-            mainnetAddress3PostBal.sub(mainnetAddress3Bal).eq(fromERC20ToDockTokens(amount3.toString())),
+            mainnetAddress3PostBal.sub(mainnetAddress3Bal).eq(erc20ToInitialMigrationTokens(amount3.toString(), isVesting)),
             true,
             `Wrong balance for address 3`
         );
         assert.equal(
-            mainnetAddress4PostBal.sub(mainnetAddress4Bal).eq(fromERC20ToDockTokens(amount4.toString())),
+            mainnetAddress4PostBal.sub(mainnetAddress4Bal).eq(erc20ToInitialMigrationTokens(amount4.toString(), isVesting)),
             true,
             `Wrong balance for address 4`
         );
@@ -273,13 +273,31 @@ contract("DockToken", accounts => {
         }
     }
 
-    it("Transfers to Dock's contract and vault using `transfer` should be migrated", async () => {
+    it("Transfers to Dock's contract and vault using `transfer` should be migrated after bonus window closes", async () => {
         await migrateTestHelper(accounts, web3, 'transfer');
     });
 
-    it("Transfers to Dock's contract and vault using `transferFrom` should be migrated", async () => {
+    it("Transfers to Dock's contract and vault using `transferFrom` should be migrated after bonus window closes", async () => {
         // This mechanism might be used by exchanges
         await migrateTestHelper(accounts, web3, 'transferFrom');
+    });
+
+    it("Transfers to Dock's contract and vault using `transfer` should be migrated when not opting for vesting bonus", async () => {
+        await migrateTestHelper(accounts, web3, 'transfer', false);
+    });
+
+    it("Transfers to Dock's contract and vault using `transferFrom` should be migrated when not opting for vesting bonus", async () => {
+        // This mechanism might be used by exchanges
+        await migrateTestHelper(accounts, web3, 'transferFrom', false);
+    });
+
+    it("Transfers to Dock's contract and vault using `transfer` should be migrated when opting for vesting bonus", async () => {
+        await migrateTestHelper(accounts, web3, 'transfer', true);
+    });
+
+    it("Transfers to Dock's contract and vault using `transferFrom` should be migrated when opting for vesting bonus", async () => {
+        // This mechanism might be used by exchanges
+        await migrateTestHelper(accounts, web3, 'transferFrom', true);
     });
 
     after(async () => {

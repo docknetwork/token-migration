@@ -1,4 +1,5 @@
-import {getNewWeb3MainnetClient, getTransactionAsDockERC20Transfer, getTransactionWithLogs, parseTxnAsERC20TransferToRecip, isTxnConfirmed, fromERC20ToDockTokens} from "../src/eth-txn-utils";
+import {getNewWeb3MainnetClient, getTransactionAsDockERC20Transfer, getTransactionWithLogs, parseTxnAsERC20TransferToRecip, isTxnConfirmed} from "../src/eth-txn-utils";
+import {fromERC20ToDockTokens} from "../src/migrations";
 
 require('dotenv').config();
 
@@ -37,15 +38,4 @@ describe('Get and parse ethereum txns', () => {
     const transfer = await parseTxnAsERC20TransferToRecip(web3Client, txn, process.env.DOCK_ERC_20_ADDR, expectedRecipient);
     expect(transfer.to.toLowerCase()).toBe(expectedRecipient);
   }, 5000);
-
-  test('Convert ERC-20 to mainnet tokens', () => {
-    expect(fromERC20ToDockTokens("9194775499990000000000").toString()).toBe("9194775499");
-    expect(fromERC20ToDockTokens("19023932499990000000000").toString()).toBe("19023932499");
-    expect(fromERC20ToDockTokens("5351643000000000000000").toString()).toBe("5351643000");
-    expect(fromERC20ToDockTokens("1654000000000000000000").toString()).toBe("1654000000");
-    expect(fromERC20ToDockTokens("6525911238000000000000").toString()).toBe("6525911238");
-    expect(fromERC20ToDockTokens("46277679625000000000000").toString()).toBe("46277679625");
-    expect(fromERC20ToDockTokens("37500000000000000000000").toString()).toBe("37500000000");
-    expect(fromERC20ToDockTokens("84000000000000000000").toString()).toBe("84000000");
-  });
 });

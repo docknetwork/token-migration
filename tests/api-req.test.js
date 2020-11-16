@@ -2,7 +2,7 @@ import bs58check from 'bs58check';
 import bs58 from 'bs58';
 import { privateToAddress, hashPersonalMessage, ecsign, toRpcSig } from 'ethereumjs-util'
 
-import {parseMigrationRequest, validateMigrationRequest, verifyPayloadSig, checkReqWindow} from '../src/util';
+import {parseMigrationRequest, validateMigrationRequest, getAddressesFromPayloadSig, checkReqWindow} from '../src/util';
 import {getNewWeb3MainnetClient} from "../src/eth-txn-utils";
 
 require('dotenv').config();
@@ -50,7 +50,9 @@ describe('Validate migration request payload', () => {
 
   test('Verify signature', async () => {
     const [payloadCheck, sig] = genTestPayloadAndSig();
-    expect(verifyPayloadSig(bs58.decode(payloadCheck), sig)).toBe(address.toString('hex'));
+    expect(getAddressesFromPayloadSig(bs58.decode(payloadCheck), sig)).toBe(address.toString('hex'));
+    const badSig = sig.slice(0, 64);
+    expect(() => getAddressesFromPayloadSig(bs58.decode(payloadCheck), badSig)).toThrow();
   });
 
    test('Validate migration request without bonus', () => {

@@ -55,6 +55,8 @@ export async function getRequestStatus(dbClient, address, txnHash) {
 }
 
 // Track a new migration request in DB. Will throw error if request already tracked else return the inserted row
+// If `isVesting` is null, it means the request was submitted after bonus window closed. `true` or `false` indicates opted for bonus or not
+// and submitted before bonus window closes
 export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature, isVesting = null) {
     const sql = 'INSERT INTO public.requests(eth_address, eth_txn_hash, mainnet_address, status, signature, is_vesting) VALUES($1, $2, $3, $4, $5, $6) RETURNING *';
     const status = isBlacklistedAddress(ethAddress) ? REQ_STATUS.INVALID_BLACKLIST : REQ_STATUS.SIG_VALID;
@@ -72,14 +74,24 @@ export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnH
     }
 }
 
+// Get requests for which migration has not been done.
 export async function getPendingMigrationRequests(dbClient) {
     const sql = `SELECT * FROM public.requests WHERE status >= ${REQ_STATUS.SIG_VALID} AND status < ${REQ_STATUS.INITIAL_TRANSFER_DONE}`;
     const res = await dbClient.query(sql);
     return res.rows;
 }
 
-export async function getPendingBonusRequests(dbClient) {
+// Get requests for which migration has been done but bonus not calculated yet
+export async function getPendingBonusCalcRequests(dbClient) {
     const sql = `SELECT * FROM public.requests WHERE status = ${REQ_STATUS.INITIAL_TRANSFER_DONE} AND is_vesting IS NOT NULL`;
+    const res = await dbClient.query(sql);
+    return res.rows;
+}
+
+// Get requests for which bonus has been calculated but not calculated yet. Returns the request such that the requests
+// opting for vesting come first
+export async function getPendingBonusDispRequests(dbClient, batchSize) {
+    const sql = `SELECT * FROM public.requests WHERE status = ${REQ_STATUS.BONUS_CALCULATED} AND is_vesting IS NOT NULL ORDER BY is_vesting DESC LIMIT ${batchSize}`;
     const res = await dbClient.query(sql);
     return res.rows;
 }
@@ -111,5 +123,10 @@ export async function markInitialMigrationDone(dbClient, ethAddr, txnHash, migra
 
 export async function updateBonuses(dbClient, ethAddr, txnHash, swapBonus, vestingBonus) {
     const sql = `UPDATE public.requests SET status = ${REQ_STATUS.BONUS_CALCULATED}, swap_bonus_tokens = '${swapBonus}', vesting_bonus_tokens = '${vestingBonus}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+    return dbClient.query(sql);
+}
+
+export async function updateAfterBonusTransfer(dbClient, ethAddr, txnHash, bonusTxnHash) {
+    const sql = `UPDATE public.requests SET status = ${REQ_STATUS.BONUS_TRANSFERRED}, bonus_txn_hash = '${bonusTxnHash}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }

@@ -22,6 +22,10 @@ async function processMigrationReq(req, res, withBonus = false) {
     // wrong id. Going the former route now.
 
     await trackNewRequest(dbClient, mainnetAddress, ethAddress, txnHash, signature, withBonus ? isVesting : null);
+
+    // XXX: As an assurance to the holder, we might decide to include a signature by the API (the public key is well known)
+    // in the response over the request thus giving them a proof that we wish to acknowledge the holder's request.
+
     res.statusCode = 200;
     res.json({
       error: null,

@@ -52,6 +52,11 @@ MIGRATOR_ALARM_EMAIL_TO = <Recipeints of alarm email>
 # Milliseconds to wait before sending next email
 MIGRATOR_ALARM_WAIT = 900000
 
+# Swap bonus pool is 20M Dock tokens, with each token having 6 decimal places
+SWAP_BONUS_POOL = 20000000000000
+# Vesting bonus pool is 30M Dock tokens, with each token having 6 decimal places
+VESTING_BONUS_POOL = 30000000000000
+
 # AWS credentials
 AWS_ACCESS_ID = <Need for sending email>
 AWS_SECRET_KEY = <Need for sending email>

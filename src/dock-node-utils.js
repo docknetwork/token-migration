@@ -19,18 +19,28 @@ export class DockNodeClient {
     // Add account using URI, do migration, remove account to avoid keeping signing key in memory.
     // recipients is a list of pairs, i.e array of 2 element arrays containing an address
     async migrate(recipients) {
+        return this.actAsMigrator('Initial migration', this.handle.migrationModule.migrateRecipAsList, [recipients])
+    }
+
+    async giveBonuses(swapBonusRecips, vestingBonusRecips) {
+        // TODO: After SDK PR is merged, uncomment the commented line and remove next
+        // return this.actAsMigrator('Bonus disbursement', this.handle.migrationModule.giveBonuses, [swapBonusRecips, vestingBonusRecips])
+        return this.actAsMigrator('Bonus disbursement', this.handle.api.tx.migrationModule.giveBonuses, [swapBonusRecips, vestingBonusRecips])
+    }
+
+    // Do an action as a migrator. Used for doing initial migration and giving bonuses
+    async actAsMigrator(actionDesc, action, args) {
         // It is known that migrator has sr25519 keys
         const keyring = new Keyring({ type: 'sr25519' });
         // TODO: Move `MIGRATOR_SK` to a file that is not part of git.
         const keypair = keyring.addFromUri(process.env.MIGRATOR_SK);
         this.handle.setAccount(keypair);
-        const txn = this.handle.migrationModule.migrateRecipAsList(recipients);
-
+        const txn = action(...args);
         try {
             const { status } = await this.handle.signAndSend(txn, false);
             return status.asInBlock.toString();
         } catch (e) {
-            throw new Error(`Migration failed with error ${e}`);
+            throw new Error(`${actionDesc} failed with error ${e}`);
         } finally {
             this.clearKeypair(keyring, keypair);
         }
@@ -48,6 +58,13 @@ export class DockNodeClient {
         }
         // allowedMigrations is a u16 so safe to convert to JS number
         return [allowedMigrations.value.toNumber(), balance.data.free];
+    }
+
+    async getBonusFor(address) {
+        // TODO: After SDK PR is merged, uncomment the commented line and remove next
+        // return this.handle.migrationModule.getBonus(address);
+        const bonus = await this.handle.api.query.migrationModule.bonuses(address);
+        return this.handle.api.createType('Option<Bonus>', bonus).unwrapOr(this.handle.api.createType('Bonus'));
     }
 
     // Returns free balance of given account

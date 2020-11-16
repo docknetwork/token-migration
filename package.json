@@ -12,7 +12,7 @@
     "start-dev": "nodemon ./src/index.js --exec babel-node --presets @babel/preset-env"
   },
   "dependencies": {
-    "@docknetwork/sdk": "^0.3.6",
+    "@docknetwork/sdk": "^0.3.8",
     "@polkadot/keyring": "^3.5.1",
     "aws-sdk": "^2.780.0",
     "bn.js": "^5.1.3",

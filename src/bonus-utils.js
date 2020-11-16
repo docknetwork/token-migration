@@ -1,6 +1,15 @@
-import {getPendingBonusRequests, updateBonuses} from "./db-utils";
-import {fromERC20ToDockTokens} from "./migrations";
+import {
+    getPendingBonusCalcRequests,
+    updateBonuses,
+    getPendingBonusDispRequests,
+    updateAfterBonusTransfer,
+} from "./db-utils";
+import {
+    fromERC20ToDockTokens,
+    getVestingAmountFromMigratedTokens
+} from "./migrations";
 import BN from "bn.js";
+import {alarmMigratorIfNeeded} from "./email-utils";
 
 require('dotenv').config();
 
@@ -32,17 +41,17 @@ export function calculateBonuses(requestRows) {
             // No risk of divide by 0 as totalTransferred is always > 0
 
             // Swap bonus for a request = (tokens transferred in that request / total tokens transferred) * Swap bonus pool
-            let sb = r.dockTokens.mul(swapPool);
-            sb = sb.div(totalTransferred);
-            r.swap_bonus_tokens = sb;
-            totalSwapBonus.iadd(sb);
+            let swapBonus = r.dockTokens.mul(swapPool);
+            swapBonus = swapBonus.div(totalTransferred);
+            r.swap_bonus_tokens = swapBonus;
+            totalSwapBonus.iadd(swapBonus);
 
             if (r.is_vesting === true) {
                 // Vesting bonus for a request = (tokens transferred in that request / total tokens transferred in requests opting for vesting) * Vesting bonus pool
-                let vb = r.dockTokens.mul(vestingPool);
-                vb = vb.div(totalTransferredByVestingUsers);
-                r.vesting_bonus_tokens = vb;
-                totalVestingBonus.iadd(vb);
+                let vestingBonus = r.dockTokens.mul(vestingPool);
+                vestingBonus = vestingBonus.div(totalTransferredByVestingUsers);
+                r.vesting_bonus_tokens = vestingBonus;
+                totalVestingBonus.iadd(vestingBonus);
             } else {
                 r.vesting_bonus_tokens = new BN("0");
             }
@@ -65,8 +74,120 @@ export async function updateDBWithBonuses(dbClient, requests) {
 // The total bonuses to be given will be used to adjust the unminted emission supply.
 // Assumes all the initial migrations are done
 export async function calculateBonusesAndUpdateDB(dbClient) {
-    const requests = await getPendingBonusRequests(dbClient);
+    const requests = await getPendingBonusCalcRequests(dbClient);
     const [updatedRequests, totalTransferred, totalTransferredByVestingUsers, totalSwapBonus, totalVestingBonus] = calculateBonuses(requests);
     await updateDBWithBonuses(dbClient, updatedRequests);
     return [totalTransferred, totalTransferredByVestingUsers, totalSwapBonus, totalVestingBonus];
+}
+
+// Finds requests that are eligible to be considered for migration or bonus given the current allowed migrations and
+// the balance of the migrator. Selects requests with highest balance first. Sorts the given requests in descending order
+// and returns the number of requests that can be selected from the given requests
+export function findAndPrepEligibleReqsGivenMigrConstr(requests, allowedMigrations, balance) {
+    requests.map((r) => {
+        const n = r;
+        n.swap_bonus_tokens = new BN(n.swap_bonus_tokens);
+        if (n.is_vesting === true) {
+            // During initial migration only half of the amount was transferred
+            n.vesting_bonus_tokens = getVestingAmountFromMigratedTokens(n.erc20).add(new BN(r.vesting_bonus_tokens));
+            n.total_bonus = n.vesting_bonus_tokens.add(n.swap_bonus_tokens);
+        } else {
+            n.total_bonus = n.swap_bonus_tokens;
+        }
+        return n;
+    });
+
+    // XXX: Consider sorting in increasing order to migrate maximum requests
+    requests.sort(function(a, b) {
+        if (a.total_bonus.lt(b.total_bonus)) {
+            return 1;
+        } else if (b.total_bonus.lt(a.total_bonus)) {
+            return -1;
+        }
+        return 0;
+    });
+
+    let accum = new BN("0");
+    let selected = 0;
+    // The node counts swap and vesting bonus entries as independent
+    let bonusEntryCount = 0;
+    while (selected < requests.length) {
+        if (bonusEntryCount >= allowedMigrations) {
+            break;
+        }
+        const temp = accum.add(requests[selected].total_bonus);
+        if (balance.gte(temp)) {
+            accum = temp;
+            bonusEntryCount += requests[selected].isVesting === true ? 2 : 1;
+            selected++;
+        } else {
+            break;
+        }
+    }
+
+    return selected;
+}
+
+export function prepareForBonusDisbursalReq(requests) {
+    const swapBonusRecips = [];
+    const vestingBonusRecips = [];
+    const startingBlockNo = new BN(process.env.MIGRATION_START_BLOCK_NO);
+    // Dock's block time is 3 sec
+    const blockTimeRatio = Math.floor(parseFloat(process.env.ETH_BLOCK_TIME) / 3);
+    requests.forEach(req => {
+        const ethBlockNo = new BN(req.eth_txn_block_no);
+        // Offset fits in 32 bytes
+        const offset = (ethBlockNo.sub(startingBlockNo).muln(blockTimeRatio).toNumber());
+        swapBonusRecips.push([req.mainnet_address, req.swap_bonus_tokens.toString(), offset])
+        if (req.is_vesting === true) {
+            vestingBonusRecips.push([req.mainnet_address, req.vesting_bonus_tokens.toString(), offset])
+        }
+    });
+    return [swapBonusRecips, vestingBonusRecips];
+}
+
+// Update request details for which bonus has been  transferred.
+export async function updateDBPostBonusTrsfr(dbClient, requests, blockHash) {
+    const dbReqPromises = [];
+    requests.forEach((req) => {
+        dbReqPromises.push(updateAfterBonusTransfer(dbClient, req.eth_address, req.eth_txn_hash, blockHash, req.mainnet_tokens));
+    });
+    await Promise.all(dbReqPromises);
+}
+
+export async function dispatchBonusesAndUpdateDB(dbClient, dockNodeClient, batchSize = 100) {
+    // Get number of allowed migration and migrator's balance
+    let [allowedMigrations, balance] = await dockNodeClient.getMigratorDetails();
+    // Convert balance to BigNumber as ERC-20 balance is used a big BigNumber
+    let balanceAsBn = balance.toBn();
+
+    await alarmMigratorIfNeeded(allowedMigrations, balanceAsBn);
+
+    // Get requests for which bonus has to be dispatched.
+    const requests = await getPendingBonusDispRequests(dbClient, batchSize);
+    if (requests.length === 0) {
+        return 0;
+    }
+
+    // Find requests which can be given bonus given migrator's current balance and allowed migrations
+    const selected = findAndPrepEligibleReqsGivenMigrConstr(requests, allowedMigrations, balanceAsBn);
+
+    if (selected === 0) {
+        throw new Error('Could not give bonus to any request. This is either due to insufficient balance or cap on the allowed migration');
+    }
+
+    if (selected < requests.length) {
+        console.warn(`${requests.length - selected} requests could not be given bonus`);
+    }
+
+    const selectedReqs = requests.slice(0, selected);
+    // Calculated offset for requests
+    const [swapBonusRecips, vestingBonusRecips] = prepareForBonusDisbursalReq(selectedReqs);
+
+    const blockHash = await dockNodeClient.giveBonuses(swapBonusRecips, vestingBonusRecips);
+    console.info(`Gave bonus to ${selected} requests in block ${blockHash}`);
+
+    await updateDBPostBonusTrsfr(dbClient, selectedReqs, blockHash);
+
+    return selected;
 }

@@ -28,7 +28,7 @@ export function validateStatusRequest(reqBody) {
   return [address, txnHash];
 }
 
-// Parse request body and verify signature. Return mainnet address, ethereum address, transaction hash and signature
+// Parse request body and verify signature. Return mainnet address, ethereum address, transaction hash, signature and vesting indicator
 export function validateMigrationRequest(reqBody, withBonus = false) {
   const [payloadBytes, sigBytes] = parseMigrationRequest(reqBody, withBonus);
   const mainnetAddress = base58.encode(payloadBytes.slice(0, MAINNET_ADDRESS_SIZE));
@@ -36,11 +36,11 @@ export function validateMigrationRequest(reqBody, withBonus = false) {
   if (!validateAddress(mainnetAddress, process.env.DOCK_NETWORK_TYPE)) {
     throw new Error(`${mainnetAddress} is not a valid address for ${process.env.DOCK_NETWORK_TYPE}net`)
   }
-  const ethAddress = verifyPayloadSig(payloadBytes, sigBytes);
-  const txnHash = Buffer.from(payloadBytes.slice(MAINNET_ADDRESS_SIZE, MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE)).toString('hex');
 
-  console.log(payloadBytes.length, payloadBytes.slice(0, MAINNET_ADDRESS_SIZE).length, payloadBytes.slice(MAINNET_ADDRESS_SIZE, MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE).length);
-  console.log(payloadBytes.slice(0, 100).length);
+  // The payload does not contain the Ethereum address, its inferred from the signature.
+  const ethAddress = getAddressesFromPayloadSig(payloadBytes, sigBytes);
+  // The payload is in form <Mainnet address><Eth Txn hash>[<Vesting indicator>]
+  const txnHash = Buffer.from(payloadBytes.slice(MAINNET_ADDRESS_SIZE, MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE)).toString('hex');
 
   let isVesting;
   if (withBonus) {
@@ -53,16 +53,27 @@ export function validateMigrationRequest(reqBody, withBonus = false) {
       throw new Error(`Vesting indicator must have been 0 or 1 but was ${lastByte}`);
     }
   } else {
+    // The request was received outside the bonus window so no bonus at all
     isVesting = null;
   }
   return [mainnetAddress, ethAddress, txnHash, sigBytes.toString('hex'), isVesting];
 }
 
-// Verify signature on payload and return the address signing the payload.
-export function verifyPayloadSig(payloadBytes, sigBytes) {
+// Verify signature on payload and return the address that signed the payload.
+export function getAddressesFromPayloadSig(payloadBytes, sigBytes) {
   const payloadHash = hashPersonalMessage(payloadBytes);
-  const sig = fromRpcSig('0x' + sigBytes.toString('hex'));
-  const pubKey = ecrecover(payloadHash, sig.v, sig.r, sig.s);
+  let sig;
+  try {
+    sig = fromRpcSig('0x' + sigBytes.toString('hex'));
+  } catch (e) {
+    throw new Error(`Invalid signature: ${e.message}`)
+  }
+  let pubKey;
+  try {
+    pubKey = ecrecover(payloadHash, sig.v, sig.r, sig.s);
+  } catch (e) {
+    throw new Error(`Invalid signature: ${e.message}`)
+  }
   return publicToAddress(pubKey).toString('hex');
 }
 
@@ -71,7 +82,7 @@ export function parseMigrationRequest(reqBody, withBonus = false) {
   const { payload, signature } = reqBody;
   let sigBytes, payloadBytes;
 
-  // Payload is in format <Mainnet address of 35 bytes><Eth txn hash of 32 bytes>
+  // Payload is in format <Mainnet address of 35 bytes><Eth txn hash of 32 bytes>[<Vesting indicator of 1 byte>]
   try {
     sigBytes = bs58.decode(signature);
   } catch (e) {
@@ -83,6 +94,7 @@ export function parseMigrationRequest(reqBody, withBonus = false) {
     throw new Error(`Cannot parse ${payload} as base58-check`);
   }
 
+  // The vesting indicator is only present with `withBonus` is true
   const payloadSize = PAYLOAD_SIZE + (withBonus ? 1 : 0);
   if (payloadBytes.length !== payloadSize) {
     throw new Error(`Payload must be of size ${payloadSize} bytes but was ${payloadBytes.length} bytes`);

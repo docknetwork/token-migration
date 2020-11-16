@@ -21,6 +21,17 @@ export function fromERC20ToDockTokens(amountInERC20) {
     return ercBN.div(new BN('1000000000000'))
 }
 
+// Takes ERC-20 amount (as smallest unit) that was migrated and returns the contribution to vesting bonus.
+export function getVestingAmountFromMigratedTokens(amountInERC20) {
+    const dockTokens = fromERC20ToDockTokens(amountInERC20);
+    // take ceil of half of the amount
+    if (dockTokens.isEven()) {
+        return dockTokens.shrn(1);
+    } else {
+        return dockTokens.shrn(1).addn(1);
+    }
+}
+
 // Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN. Considers whether vesting or not.
 // In the case where vesting does not apply or is not opted, the amount is returned as it is else the amount is halved
 // followed by flooring in case amount was odd
@@ -35,15 +46,16 @@ export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
 }
 
 // Attempt to migrate requests which are confirmed
-export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMigrations, balanceAsBn) {
+export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMigrations, balance) {
     // For reqs as confirmed txns, send migration request immediately
     const confirmed = dbReqs.map((r) => {
         const n = r;
         // Calculate tokens to be given now, i.e. before bonus
         n.migration_tokens = erc20ToInitialMigrationTokens(n.erc20, n.is_vesting);
         return n;
-    })
+    });
     // Try to send migration for maximum amount, sort in descending order.
+    // XXX: Consider sorting in increasing order to migrate maximum requests
     confirmed.sort(function(a, b) {
         if (a.migration_tokens.lt(b.migration_tokens)) {
             return 1;
@@ -61,7 +73,7 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
             break;
         }
         const temp = accum.add(confirmed[selected].migration_tokens);
-        if (balanceAsBn.gte(temp)) {
+        if (balance.gte(temp)) {
             accum = temp;
             selected++;
         } else {

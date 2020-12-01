@@ -92,7 +92,7 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
 
   // CORS middleware
   server.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN);
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
     next();
   });

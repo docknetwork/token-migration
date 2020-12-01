@@ -7,6 +7,7 @@ Change below variables according to your setup
 ```
 API_LISTEN_ADDRESS = 127.0.0.1
 API_PORT = 3000
+CORS_ORIGIN = dock.io
 
 ETH_NODE_ENDPOINT = <HTTP/S endpoint to connect to Ethereum node, can be from Infura>
 # Address of Dock's ERC-20 contract

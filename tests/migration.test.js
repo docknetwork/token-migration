@@ -1,28 +1,6 @@
-import {DBClient} from "../src/db-utils";
-import {getNewWeb3TestClient} from "../src/eth-txn-utils";
-import {erc20ToInitialMigrationTokens, fromERC20ToDockTokens, processPendingRequests} from "../src/migrations";
-import {DockNodeClient} from "../src/dock-node-utils";
+import {erc20ToInitialMigrationTokens, fromERC20ToDockTokens, getVestingAmountFromMigratedTokens} from "../src/migrations";
 
 describe('Migration testing', () => {
-    const testAdminAddr = '0x81915d9d312e6fae52340a466f252c4ef111a012';
-    const testAdminPrivKey = '5a9f39f83bbeb09acb8b3b2973d7855390fb82045f708e4095815c0a8fd9ccb9';
-
-    let web3Client, dbClient, dockNodeClient;
-
-    beforeAll( async (done) => {
-        dbClient = new DBClient();
-        await dbClient.start();
-        dockNodeClient = new DockNodeClient();
-        await dockNodeClient.start();
-        // web3Client = getNewWeb3MainnetClient();
-        web3Client = getNewWeb3TestClient();
-        done();
-    }, 10000);
-
-    test('Check pending request', async () => {
-        await processPendingRequests(dbClient, web3Client, dockNodeClient);
-        // TODO:
-    }, 40000)
 
     test('Convert ERC-20 to mainnet tokens', () => {
         expect(fromERC20ToDockTokens("9194775499990000000000").toString()).toBe("9194775499");
@@ -57,10 +35,11 @@ describe('Migration testing', () => {
         expect(erc20ToInitialMigrationTokens("6525911238000000000000", true).toString()).toBe("3262955619");
     });
 
-    // TODO: add more tests using local web3 client with Ganache
-    afterAll( async (done) => {
-        await dbClient.stop();
-        await dockNodeClient.stop();
-        done();
-    }, 5000);
+    test('From ERC-20 to vesting tokens', () => {
+        expect(getVestingAmountFromMigratedTokens("9194775499990000000000").toString()).toBe("4597387750");
+        expect(getVestingAmountFromMigratedTokens("19023932499990000000000").toString()).toBe("9511966250");
+        expect(getVestingAmountFromMigratedTokens("5351643000000000000000").toString()).toBe("2675821500");
+        expect(getVestingAmountFromMigratedTokens("1654000000000000000000").toString()).toBe("827000000");
+        expect(getVestingAmountFromMigratedTokens("6525911238000000000000").toString()).toBe("3262955619");
+    })
 });

@@ -1,7 +1,6 @@
-import {erc20ToInitialMigrationTokens} from '../../../build/eth-txn-utils';
 import {DBClient, getRequestStatus, trackNewRequest} from "../../../build/db-utils";
 import {DockNodeClient} from "../../../build/dock-node-utils";
-import {processPendingRequests} from "../../../build/migrations";
+import {processPendingRequests, erc20ToInitialMigrationTokens} from "../../../build/migrations";
 import {REQ_STATUS} from "../../../build/constants";
 import {removePrefixFromHex} from "../../../build/util";
 
@@ -55,7 +54,7 @@ contract("DockToken", accounts => {
         process.env.ETH_NODE_ENDPOINT = host;
     });
 
-    async function migrateTestHelper(accounts, web3, transferMechanism, isVesting = null) {
+    async function migrateTestHelper(accs, web3, transferMechanism, isVesting = null) {
         assert.equal(
             transferMechanism !== 'transfer' && transferMechanism !== 'transferFrom',
             false,
@@ -63,7 +62,7 @@ contract("DockToken", accounts => {
         );
 
         // Owner fuels test accounts
-        const owner = accounts[0];
+        const owner = accs[0];
         const contract = await DockToken.deployed();
         const ownerBal = await contract.balanceOf.call(owner);
         console.log(ownerBal.toString());
@@ -81,12 +80,12 @@ contract("DockToken", accounts => {
         console.log(amount2.toString());
         console.log(amount3.toString());
         console.log(amount4.toString());
-        await contract.transfer(accounts[1], amount1, { from: owner });
-        await contract.transfer(accounts[2], amount2, { from: owner });
-        await contract.transfer(accounts[3], amount3, { from: owner });
-        await contract.transfer(accounts[4], amount4, { from: owner });
+        await contract.transfer(accs[1], amount1, { from: owner });
+        await contract.transfer(accs[2], amount2, { from: owner });
+        await contract.transfer(accs[3], amount3, { from: owner });
+        await contract.transfer(accs[4], amount4, { from: owner });
         // accounts[5] will not transfer to vault
-        await contract.transfer(accounts[5], amount4, { from: owner });
+        await contract.transfer(accs[5], amount4, { from: owner });
         console.log((await contract.balanceOf.call(owner)).toString());
 
         const mainnetAddress1 = '3AkJdiRsTjWp5PjJRVXgDhVAUhtgutckADgwHGQh7ZB1ANvs';
@@ -95,40 +94,40 @@ contract("DockToken", accounts => {
         const mainnetAddress4 = '37iWizExBLPhxf2M6igyvuBncKLihaiM8r3ebnpX3AVFKDDP';
         const mainnetAddress5 = '37rKkpevvStBZhwfrd2GWVtQWprac3mBrr8v8RNNqqtoyVST';
 
-        const vault = accounts[TEST_VAULT_ACCOUNT_INDEX];
+        const vault = accs[TEST_VAULT_ACCOUNT_INDEX];
         const oldBalances = {};
-        oldBalances[accounts[1]] = await contract.balanceOf.call(accounts[1]);
-        oldBalances[accounts[2]] = await contract.balanceOf.call(accounts[2]);
-        oldBalances[accounts[3]] = await contract.balanceOf.call(accounts[3]);
-        oldBalances[accounts[4]] = await contract.balanceOf.call(accounts[4]);
-        oldBalances[accounts[5]] = await contract.balanceOf.call(accounts[5]);
+        oldBalances[accs[1]] = await contract.balanceOf.call(accs[1]);
+        oldBalances[accs[2]] = await contract.balanceOf.call(accs[2]);
+        oldBalances[accs[3]] = await contract.balanceOf.call(accs[3]);
+        oldBalances[accs[4]] = await contract.balanceOf.call(accs[4]);
+        oldBalances[accs[5]] = await contract.balanceOf.call(accs[5]);
         oldBalances[vault] = await contract.balanceOf.call(vault);
 
         let txn1, txn2, txn3, txn4, txn5;
         // Transfer to vault
         if (transferMechanism === 'transfer') {
             // Direct transfer to vault
-            txn1 = await contract.transfer(vault, amount1, { from: accounts[1] });
-            txn2 = await contract.transfer(vault, amount2, { from: accounts[2] });
-            txn3 = await contract.transfer(vault, amount3, { from: accounts[3] });
-            txn4 = await contract.transfer(vault, amount4, { from: accounts[4] });
+            txn1 = await contract.transfer(vault, amount1, { from: accs[1] });
+            txn2 = await contract.transfer(vault, amount2, { from: accs[2] });
+            txn3 = await contract.transfer(vault, amount3, { from: accs[3] });
+            txn4 = await contract.transfer(vault, amount4, { from: accs[4] });
             // accounts[5] not transferring to vault but to accounts[6]
-            txn5 = await contract.transfer(accounts[6], amount4, { from: accounts[5] });
+            txn5 = await contract.transfer(accs[6], amount4, { from: accs[5] });
         } else {
             // Approval of transfer to an intermediate account, accounts[7]
-            await contract.approve(accounts[7], amount1, { from: accounts[1] });
-            await contract.approve(accounts[7], amount2, { from: accounts[2] });
-            await contract.approve(accounts[7], amount3, { from: accounts[3] });
-            await contract.approve(accounts[7], amount4, { from: accounts[4] });
-            await contract.approve(accounts[7], amount4, { from: accounts[5] });
+            await contract.approve(accs[7], amount1, { from: accs[1] });
+            await contract.approve(accs[7], amount2, { from: accs[2] });
+            await contract.approve(accs[7], amount3, { from: accs[3] });
+            await contract.approve(accs[7], amount4, { from: accs[4] });
+            await contract.approve(accs[7], amount4, { from: accs[5] });
 
             // accounts[7] uses the approved amount to transfer to vault
-            txn1 = await contract.transferFrom(accounts[1], vault, amount1, { from: accounts[7] });
-            txn2 = await contract.transferFrom(accounts[2], vault, amount2, { from: accounts[7] });
-            txn3 = await contract.transferFrom(accounts[3], vault, amount3, { from: accounts[7] });
-            txn4 = await contract.transferFrom(accounts[4], vault, amount4, { from: accounts[7] });
+            txn1 = await contract.transferFrom(accs[1], vault, amount1, { from: accs[7] });
+            txn2 = await contract.transferFrom(accs[2], vault, amount2, { from: accs[7] });
+            txn3 = await contract.transferFrom(accs[3], vault, amount3, { from: accs[7] });
+            txn4 = await contract.transferFrom(accs[4], vault, amount4, { from: accs[7] });
             // accounts[5] not transferring to vault but to accounts[6]
-            txn5 = await contract.transferFrom(accounts[5], accounts[6], amount4, { from: accounts[7] });
+            txn5 = await contract.transferFrom(accs[5], accs[6], amount4, { from: accs[7] });
         }
 
 
@@ -151,11 +150,11 @@ contract("DockToken", accounts => {
 
 
         // Don't care about signature here
-        await trackNewRequest(dbClient, mainnetAddress1, accounts[1], txn1.tx, "", isVesting)
-        await trackNewRequest(dbClient, mainnetAddress2, accounts[2], txn2.tx, "", isVesting)
-        await trackNewRequest(dbClient, mainnetAddress3, accounts[3], txn3.tx, "", isVesting)
-        await trackNewRequest(dbClient, mainnetAddress4, accounts[4], txn4.tx, "", isVesting)
-        await trackNewRequest(dbClient, mainnetAddress5, accounts[5], txn5.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress1, accs[1], txn1.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress2, accs[2], txn2.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress3, accs[3], txn3.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress4, accs[4], txn4.tx, "", isVesting)
+        await trackNewRequest(dbClient, mainnetAddress5, accs[5], txn5.tx, "", isVesting)
 
         let [allowedMigrationsPre, balancePre] = await nodeClient.getMigratorDetails();
 
@@ -211,39 +210,39 @@ contract("DockToken", accounts => {
             `Wrong balance for address 5`
         );
         // Address 5's request should be marked invalid
-        let status = await getRequestStatus(dbClient, accounts[5], txn5.tx)
+        let status = await getRequestStatus(dbClient, accs[5], txn5.tx)
         assert.equal(status, REQ_STATUS.INVALID, 'Status should have been invalid');
 
         // Requesters' ERC-20 balance should decrease
         const newBalances = {};
-        newBalances[accounts[1]] = await contract.balanceOf.call(accounts[1]);
-        newBalances[accounts[2]] = await contract.balanceOf.call(accounts[2]);
-        newBalances[accounts[3]] = await contract.balanceOf.call(accounts[3]);
-        newBalances[accounts[4]] = await contract.balanceOf.call(accounts[4]);
-        newBalances[accounts[5]] = await contract.balanceOf.call(accounts[5]);
+        newBalances[accs[1]] = await contract.balanceOf.call(accs[1]);
+        newBalances[accs[2]] = await contract.balanceOf.call(accs[2]);
+        newBalances[accs[3]] = await contract.balanceOf.call(accs[3]);
+        newBalances[accs[4]] = await contract.balanceOf.call(accs[4]);
+        newBalances[accs[5]] = await contract.balanceOf.call(accs[5]);
         newBalances[vault] = await contract.balanceOf.call(vault);
         assert.equal(
-            oldBalances[accounts[1]].sub(newBalances[accounts[1]]).eq(amount1),
+            oldBalances[accs[1]].sub(newBalances[accs[1]]).eq(amount1),
             true,
             'ERC-20 balance did not decrease correctly for 1'
         );
         assert.equal(
-            oldBalances[accounts[2]].sub(newBalances[accounts[2]]).eq(amount2),
+            oldBalances[accs[2]].sub(newBalances[accs[2]]).eq(amount2),
             true,
             'ERC-20 balance did not decrease correctly for 2'
         );
         assert.equal(
-            oldBalances[accounts[3]].sub(newBalances[accounts[3]]).eq(amount3),
+            oldBalances[accs[3]].sub(newBalances[accs[3]]).eq(amount3),
             true,
             'ERC-20 balance did not decrease correctly for 3'
         );
         assert.equal(
-            oldBalances[accounts[4]].sub(newBalances[accounts[4]]).eq(amount4),
+            oldBalances[accs[4]].sub(newBalances[accs[4]]).eq(amount4),
             true,
             'ERC-20 balance did not decrease correctly for 4'
         );
         assert.equal(
-            oldBalances[accounts[5]].sub(newBalances[accounts[5]]).eq(amount4),
+            oldBalances[accs[5]].sub(newBalances[accs[5]]).eq(amount4),
             true,
             'ERC-20 balance did not decrease correctly for 5'
         );
@@ -259,11 +258,11 @@ contract("DockToken", accounts => {
 
         // Cleanup
         const items = [
-            [accounts[1], txn1.tx],
-            [accounts[2], txn2.tx],
-            [accounts[3], txn3.tx],
-            [accounts[4], txn4.tx],
-            [accounts[5], txn5.tx]
+            [accs[1], txn1.tx],
+            [accs[2], txn2.tx],
+            [accs[3], txn3.tx],
+            [accs[4], txn4.tx],
+            [accs[5], txn5.tx]
         ];
         for (let i=0; i<5; i++) {
             const ethAddr = removePrefixFromHex(items[i][0]);

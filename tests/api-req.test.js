@@ -3,17 +3,15 @@ import bs58 from 'bs58';
 import { privateToAddress, hashPersonalMessage, ecsign, toRpcSig } from 'ethereumjs-util'
 
 import {parseMigrationRequest, validateMigrationRequest, getAddressesFromPayloadSig, checkReqWindow} from '../src/util';
-import {getNewWeb3MainnetClient} from "../src/eth-txn-utils";
 
 require('dotenv').config();
 
 describe('Validate migration request payload', () => {
   const privateKey = Buffer.from('efca4cdd31923b50f4214af5d2ae10e7ac45a5019e9431cc195482d707485378', 'hex');
-  let address, payloadCheck, web3Client, dbClient;
+  let address;
   
   beforeAll( () => {
     address = privateToAddress(privateKey);
-    web3Client = getNewWeb3MainnetClient();
   });
 
   function genTestPayloadAndSig(withBonus = null) {
@@ -41,7 +39,7 @@ describe('Validate migration request payload', () => {
     const base58Sig = '93pdQkvNzfquz5M8KgZgi7Q2QmqEPHEo8YXw3ERSvMgFS18Yn5rD9VFrSJfApLSgh7H92DdNnFQTV8x7vbEhHcfY7'
     const expectedPayloadRaw = Buffer.concat([bs58.decode(expectedMainnetAddress), Buffer.from(expectedTxnHash, 'hex')]);
     // Payload sent by the client
-    payloadCheck = bs58check.encode(expectedPayloadRaw);
+    const payloadCheck = bs58check.encode(expectedPayloadRaw);
 
     const [payloadBytes, sigBytes] = parseMigrationRequest({payload: payloadCheck, signature: base58Sig});
     expect(payloadBytes).toStrictEqual(bs58.decode(payloadCheck));

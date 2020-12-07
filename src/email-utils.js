@@ -1,6 +1,6 @@
 import SESV2 from 'aws-sdk/clients/sesv2';
 import {configFileName} from "./constants";
-import * as BN from "bn.js";
+import BN from "bn.js";
 
 require('dotenv').config();
 

@@ -12,7 +12,8 @@ CORS_ORIGIN = dock.io
 ETH_NODE_ENDPOINT = <HTTP/S endpoint to connect to Ethereum node, can be from Infura>
 # Address of Dock's ERC-20 contract
 DOCK_ERC_20_ADDR = 0xe5dada80aa6477e85d09747f2842f7993d0df71c
-DOCK_ERC_20_VAULT_ADDR = <Dock's vault address>
+# Dock's Vault (multi-sig wallet) address
+DOCK_ERC_20_VAULT_ADDR = 0x0cf75f808479c9e7d61c78f65e997b605160b0aa
 # No of blocks to wait before treating Eth transaction as confirmed. 
 ETH_TXN_CONFIRMATION_BLOCKS = 40
 
@@ -48,8 +49,8 @@ MIGRATOR_MIN_BALANCE = 1000000000
 MIGRATOR_MIN_ALLOWED = 50
 # If a migrator's balance or allowed transfers go below certain point, email will be sent below
 MIGRATOR_ALARM_EMAIL_FROM = <Sender of alarm email>
-# Comma separaed list of alarm email recipeints.
-MIGRATOR_ALARM_EMAIL_TO = <Recipeints of alarm email>
+# Comma separated list of alarm email recipients.
+MIGRATOR_ALARM_EMAIL_TO = <Recipients of alarm email>
 # Milliseconds to wait before sending next email
 MIGRATOR_ALARM_WAIT = 900000
 

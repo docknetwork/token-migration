@@ -16,19 +16,35 @@ export class DockNodeClient {
         await this.handle.disconnect()
     }
 
-    // Add account using URI, do migration, remove account to avoid keeping signing key in memory.
-    // recipients is a list of pairs, i.e array of 2 element arrays containing an address
+    /**
+     * Add account using URI, do migration, remove account to avoid keeping signing key in memory.
+     * recipients is a list of pairs, i.e array of 2 element arrays containing an address
+     * @param recipients
+     * @returns {Promise<*|undefined>}
+     */
     async migrate(recipients) {
-        return this.actAsMigrator('Initial migration', this.handle.migrationModule.migrateRecipAsList, [recipients])
+        const action = this.handle.migrationModule.migrateRecipAsList.bind(this.handle);
+        return this.actAsMigrator('Initial migration', action, [recipients])
     }
 
+    /**
+     * Add account using URI, give bonus, remove account to avoid keeping signing key in memory.
+     * @param swapBonusRecips - Array of 3-element arrays with 1st element is address, 2nd is amount, 3rd is offset
+     * @param vestingBonusRecips - Array of 3-element arrays with 1st element is address, 2nd is amount, 3rd is offset
+     * @returns {Promise<*>}
+     */
     async giveBonuses(swapBonusRecips, vestingBonusRecips) {
-        // TODO: After SDK PR is merged, uncomment the commented line and remove next
-        // return this.actAsMigrator('Bonus disbursement', this.handle.migrationModule.giveBonuses, [swapBonusRecips, vestingBonusRecips])
-        return this.actAsMigrator('Bonus disbursement', this.handle.api.tx.migrationModule.giveBonuses, [swapBonusRecips, vestingBonusRecips])
+        const action = this.handle.migrationModule.giveBonuses.bind(this.handle);
+        return this.actAsMigrator('Bonus disbursement', action, [swapBonusRecips, vestingBonusRecips])
     }
 
-    // Do an action as a migrator. Used for doing initial migration and giving bonuses
+    /**
+     * Do an action as a migrator. Used for doing initial migration and giving bonuses
+     * @param actionDesc
+     * @param action
+     * @param args
+     * @returns {Promise<*>}
+     */
     async actAsMigrator(actionDesc, action, args) {
         // It is known that migrator has sr25519 keys
         const keyring = new Keyring({ type: 'sr25519' });
@@ -46,7 +62,10 @@ export class DockNodeClient {
         }
     }
 
-    // Get migrator's allowed migrations free balance
+    /**
+     * Get migrator's allowed migrations free balance
+     * @returns {Promise<(*|string|{"@id": string})[]>}
+     */
     async getMigratorDetails() {
         const address = process.env.MIGRATOR_ADDR;
         const [allowedMigrations, balance] = await multiQuery(this.handle, [
@@ -67,7 +86,11 @@ export class DockNodeClient {
         return this.handle.api.createType('Option<Bonus>', bonus).unwrapOr(this.handle.api.createType('Bonus'));
     }
 
-    // Returns free balance of given account
+    /**
+     * Returns free balance of given account
+     * @param address
+     * @returns {Promise<string|{"@id": string}|*>}
+     */
     async getBalance(address) {
         const balance = await this.handle.api.query.system.account(address);
         return balance.data.free;

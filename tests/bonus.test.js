@@ -214,7 +214,7 @@ describe('Bonus utils', () => {
         });
         await Promise.all(queries);
         await dbClient.stop();
-    }, 10000);
+    }, 30000);
 
     test('Check bonus disbursal', () => {
         // Swap and vesting bonuses are 100 tokens each
@@ -302,7 +302,7 @@ describe('Bonus utils', () => {
         expect(bonus_5.swap_bonuses[bonus_5.swap_bonuses.length-1][1].toNumber()).toBe(blockNo + 160);
 
         await dockNodeClient.stop();
-    }, 30000);
+    }, 40000);
 
     afterAll(() => {
         process.env.SWAP_BONUS_POOL = sReal;

@@ -1,5 +1,4 @@
 import {getNewWeb3MainnetClient, getTransactionAsDockERC20Transfer, getTransactionWithLogs, parseTxnAsERC20TransferToRecip, isTxnConfirmed} from "../src/eth-txn-utils";
-import {fromERC20ToDockTokens} from "../src/migrations";
 
 require('dotenv').config();
 
@@ -8,7 +7,6 @@ describe('Get and parse ethereum txns', () => {
 
   beforeAll(async (done) => {
     web3Client = getNewWeb3MainnetClient();
-    // web3Client = getNewWeb3TestClient();
     done();
   }, 5000);
 

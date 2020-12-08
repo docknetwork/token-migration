@@ -1,6 +1,13 @@
-import {erc20ToInitialMigrationTokens, fromERC20ToDockTokens, getVestingAmountFromMigratedTokens} from "../src/migrations";
+import {erc20ToInitialMigrationTokens, fromERC20ToDockTokens, getVestingAmountFromMigratedTokens, isValidTransferFrom} from "../src/migrations";
+import {getNewWeb3MainnetClient, getTransactionAsDockERC20TransferToVault} from "../src/eth-txn-utils";
 
 describe('Migration testing', () => {
+    let vaultReal;
+
+    beforeAll(() => {
+        // Mock address will be vaulted. Keeping this value to switch back to original value.
+        vaultReal = process.env.DOCK_ERC_20_VAULT_ADDR;
+    });
 
     test('Convert ERC-20 to mainnet tokens', () => {
         expect(fromERC20ToDockTokens("9194775499990000000000").toString()).toBe("9194775499");
@@ -42,4 +49,25 @@ describe('Migration testing', () => {
         expect(getVestingAmountFromMigratedTokens("1654000000000000000000").toString()).toBe("827000000");
         expect(getVestingAmountFromMigratedTokens("6525911238000000000000").toString()).toBe("3262955619");
     })
+
+    test('Valid transfers from certain address', async () => {
+        // Mock vault address
+        process.env.DOCK_ERC_20_VAULT_ADDR = '0x1062a747393198f70f71ec65a582423dba7e5ab3';
+
+        const web3Client = getNewWeb3MainnetClient();
+
+        // Transfer made by address 0x1b2c4352fa9fb5567c49ac78ceb7209d23f6632e
+        const txnHash1 = '0x51279a0b8b7f18610dd2dc60b36430fa54f4de12219612f894e9fd0dbd495174';
+        const transfer1 = await getTransactionAsDockERC20TransferToVault(web3Client, txnHash1);
+        expect(isValidTransferFrom(transfer1, '1b2c4352fa9fb5567c49ac78ceb7209d23f6632e')).toBe(true);
+
+        // Transfer not made by address 0x1b2c4352fa9fb5567c49ac78ceb7209d23f6632e
+        const txnHash2 = '0x8eb1f8f5ec864ee638a160958b153bfdd84519e8edaa413d27420ab89ca299f5';
+        const transfer2 = await getTransactionAsDockERC20TransferToVault(web3Client, txnHash2);
+        expect(isValidTransferFrom(transfer2, '1b2c4352fa9fb5567c49ac78ceb7209d23f6632e')).toBe(false);
+    });
+
+    afterAll(() => {
+        process.env.DOCK_ERC_20_VAULT_ADDR = vaultReal;
+    });
 });

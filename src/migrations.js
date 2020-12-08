@@ -13,7 +13,11 @@ import {addPrefixToHex, removePrefixFromHex} from "./util";
 import BN from 'bn.js';
 import {alarmMigratorIfNeeded} from "./email-utils";
 
-// Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
+/**
+ * Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
+ * @param amountInERC20
+ * @returns {BN}
+ */
 export function fromERC20ToDockTokens(amountInERC20) {
     const ercBN = new BN(amountInERC20);
     // Dock mainnet has 6 decimal places, ERC-20 has 18
@@ -21,7 +25,11 @@ export function fromERC20ToDockTokens(amountInERC20) {
     return ercBN.div(new BN('1000000000000'))
 }
 
-// Takes ERC-20 amount (as smallest unit) that was migrated and returns the contribution to vesting bonus.
+/**
+ * Takes ERC-20 amount (as smallest unit) that was migrated and returns the contribution to vesting bonus.
+ * @param amountInERC20
+ * @returns {BN}
+ */
 export function getVestingAmountFromMigratedTokens(amountInERC20) {
     const dockTokens = fromERC20ToDockTokens(amountInERC20);
     // take ceil of half of the amount
@@ -32,9 +40,14 @@ export function getVestingAmountFromMigratedTokens(amountInERC20) {
     }
 }
 
-// Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN. Considers whether vesting or not.
-// In the case where vesting does not apply or is not opted, the amount is returned as it is else the amount is halved
-// followed by flooring in case amount was odd
+/**
+ * Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN. Considers whether vesting or not.
+ In the case where vesting does not apply or is not opted, the amount is returned as it is else the amount is halved
+ followed by flooring in case amount was odd
+ * @param amountInERC20
+ * @param isVesting
+ * @returns {BN}
+ */
 export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
     const dockTokens = fromERC20ToDockTokens(amountInERC20);
     if (isVesting === true) {
@@ -45,7 +58,14 @@ export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
     }
 }
 
-// Attempt to migrate requests which are confirmed
+/**
+ * Attempt to migrate requests which are confirmed
+ * @param dockNodeClient
+ * @param dbReqs
+ * @param allowedMigrations
+ * @param balance
+ * @returns {Promise<(*|[]|BN)[]>}
+ */
 export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMigrations, balance) {
     // For reqs as confirmed txns, send migration request immediately
     const confirmed = dbReqs.map((r) => {
@@ -104,7 +124,13 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
     return [blockHash, migrated, accum]
 }
 
-// Post migration, update requests in DB
+/**
+ * Post initial migration, update requests in DB
+ * @param dbClient
+ * @param blockHash
+ * @param migrated
+ * @returns {Promise<void>}
+ */
 async function updateMigratedRequestsInDb(dbClient, blockHash, migrated) {
     const hash = removePrefixFromHex(blockHash);
     // Update DB
@@ -115,8 +141,24 @@ async function updateMigratedRequestsInDb(dbClient, blockHash, migrated) {
     await Promise.all(dbReqPromises);
 }
 
+/**
+ * Returns true if its a valid transfer from given Eth address
+ * @param txn
+ * @param ethAddr
+ * @returns {boolean}
+ */
+export function isValidTransferFrom(txn, ethAddr) {
+    return !((txn.status === "rejected") || (removePrefixFromHex(txn.from).toLowerCase() !== ethAddr))
+}
+
 // TODO: A better alternative to console.info and console.warn here are using an external logging service
-// Process any pending migration requests, includes all (confirmed and unconfirmed) valid requestsHe
+/**
+ * Process any pending migration requests, includes all (confirmed and unconfirmed) valid requests
+ * @param dbClient
+ * @param web3Client
+ * @param dockNodeClient
+ * @returns {Promise<void>}
+ */
 export async function processPendingRequests(dbClient, web3Client, dockNodeClient) {
     const requests = await getPendingMigrationRequests(dbClient);
     // Group requests by status
@@ -132,8 +174,8 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
 
     await alarmMigratorIfNeeded(allowedMigrations, balanceAsBn);
 
-    // Attempt to migrate requests with already confirmed txns. Any confirmed reqs not migrated will not be touched during this
-    // entire loop as they might have too much balance.
+    // Attempt to migrate requests with already confirmed txns. Any confirmed reqs not migrated will not be touched during the
+    // current execution of this function as they might have too much balance.
     if (reqByStatus[REQ_STATUS.TXN_CONFIRMED] && (reqByStatus[REQ_STATUS.TXN_CONFIRMED].length > 0)) {
         console.info(`Found ${reqByStatus[REQ_STATUS.TXN_CONFIRMED].length} confirmed requests. Trying to migrate now`);
         try {
@@ -171,10 +213,8 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
 
     // Parse and check if any valid requests are confirmed and can be sent for migration
     reqsWithValidSig.forEach((req, index) => {
-        if (txns[index].status === "rejected") {
-            dbWritesForUnMigratedReqs.push(markRequestInvalid(dbClient, req.eth_address, req.eth_txn_hash))
-        } else {
-            const txn = txns[index].value;
+        const txn = txns[index].value;
+        if (isValidTransferFrom(txn, req.eth_address)) {
             if (isTxnConfirmedAsOf(txn, currentBlockNumber)) {
                 req.status = REQ_STATUS.TXN_CONFIRMED;
                 req.erc20 = txn.value;
@@ -184,6 +224,8 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
             } else {
                 dbWritesForUnMigratedReqs.push(markRequestParsed(dbClient, req.eth_address, req.eth_txn_hash, txn.value))
             }
+        } else {
+            dbWritesForUnMigratedReqs.push(markRequestInvalid(dbClient, req.eth_address, req.eth_txn_hash))
         }
     });
 
@@ -192,10 +234,11 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     // Check if any parsed requests are confirmed and can be sent for migration
     const txnListOffset = reqsWithValidSig.length;
     reqsWithValidTxn.forEach((req, index) => {
-        if (isTxnConfirmedAsOf(txns[txnListOffset + index], currentBlockNumber)) {
+        const txn = txns[txnListOffset + index].value;
+        if (isTxnConfirmedAsOf(txn, currentBlockNumber)) {
             req.status = REQ_STATUS.TXN_CONFIRMED;
             confirmedReqs.push(req);
-            dbWritesForUnMigratedReqs.push(markRequestConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txns[txnListOffset + index].blockNumber))
+            dbWritesForUnMigratedReqs.push(markRequestConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txn.blockNumber))
         }
     });
 

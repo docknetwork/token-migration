@@ -75,7 +75,7 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
 
   // Use JSON body parser with limit as we know its b58check of 67 bytes and hex of 64 bytes signature
   server.use(bodyParser.json({
-    limit: '240b',
+    limit: '260b',
   }));
 
   const speedLimiter = slowDown({

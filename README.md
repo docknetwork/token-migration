@@ -21,10 +21,10 @@ ETH_TXN_CONFIRMATION_BLOCKS = 40
 ETH_BLOCK_TIME = 13
 # Ethereum block number from where migration starts. Dummy value for now, real value will be set once migration date is finalized.
 MIGRATION_START_BLOCK_NO = 100
-# No of blocks corresponding to the bonus duration of 4 weeks. 4 weeks = 2419200 (4*7*24*3600) seconds and ceil(2419200/13) = 186093
-BONUS_DURATION_IN_BLOCKS = 186093
-# No of blocks corresponding to the migration duration. 12 weeks = 7257600 (12*7*24*3600) seconds and ceil(7257600/13) = 558277
-MIGRATION_DURATION_IN_BLOCKS = 558277
+# Timestamp in ms when bonus ends. Current time + 4 weeks.
+BONUS_ENDS_AT = 1610064000000
+# Timestamp in ms when migration ends. Current time + 3 months.
+MIGRATION_ENDS_AT = 1615161600000
 
 DB_ENDPOINT = <For connection to db>
 # Default port of Postgres

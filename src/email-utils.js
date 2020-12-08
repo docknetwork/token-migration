@@ -6,7 +6,12 @@ require('dotenv').config();
 
 const fs = require('fs');
 
-// Check if a migrator needs to be refuelled and ring an alarm if needed.
+/**
+ * Check if a migrator needs to be refuelled and ring an alarm if needed.
+ * @param allowedMigrations
+ * @param balanceAsBn
+ * @returns {Promise<void>}
+ */
 export async function alarmMigratorIfNeeded(allowedMigrations, balanceAsBn) {
     if (shouldRingAlarm(allowedMigrations, balanceAsBn)) {
         await sendMigratorAlarmEmail();
@@ -14,7 +19,12 @@ export async function alarmMigratorIfNeeded(allowedMigrations, balanceAsBn) {
     }
 }
 
-// Check if an alarm should be rung.
+/**
+ * Check if an alarm should be rung.
+ * @param allowedMigrations
+ * @param balanceAsBn
+ * @returns {boolean}
+ */
 export function shouldRingAlarm(allowedMigrations, balanceAsBn) {
     // If allowed migrations or balance is less than specified in environment variable.
     if ((allowedMigrations < process.env.MIGRATOR_MIN_ALLOWED) || (balanceAsBn.lt(new BN(process.env.MIGRATOR_MIN_BALANCE)))) {
@@ -35,7 +45,10 @@ export function shouldRingAlarm(allowedMigrations, balanceAsBn) {
     return false
 }
 
-// Send mail alarming that migrator should be refuelled
+/**
+ * Send mail alarming that migrator should be refuelled
+ * @returns {Promise<SESV2.SendEmailResponse & {$response: Response<SESV2.SendEmailResponse, AWSError>}>}
+ */
 export async function sendMigratorAlarmEmail() {
     const ses = new SESV2({
         apiVersion: '2019-09-27',
@@ -73,7 +86,9 @@ export async function sendMigratorAlarmEmail() {
     return r;
 }
 
-// Write config file.
+/**
+ * Write config file.
+ */
 function writeConfig() {
     const config = {
         lastAlarm: new Date().toISOString()
@@ -81,8 +96,3 @@ function writeConfig() {
     let rawConfig = JSON.stringify(config);
     fs.writeFileSync(configFileName, rawConfig);
 }
-
-/*
-void async function() {
-    await sendMigratorAlarmEmail();
-}();*/

@@ -34,6 +34,7 @@ describe('Get and parse ethereum txns', () => {
     const txn = await getTransactionWithLogs(web3Client, txnHash);
     const expectedRecipient = '0x1062a747393198f70f71ec65a582423dba7e5ab3'
     const transfer = await parseTxnAsERC20TransferToRecip(web3Client, txn, process.env.DOCK_ERC_20_ADDR, expectedRecipient);
+    console.log(transfer);
     expect(transfer.to.toLowerCase()).toBe(expectedRecipient);
   }, 5000);
 });

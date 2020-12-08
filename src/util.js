@@ -1,7 +1,12 @@
 import bs58check from 'bs58check';
 import bs58 from 'bs58';
 import base58 from 'bs58';
-import {ecrecover, fromRpcSig, hashPersonalMessage, publicToAddress} from 'ethereumjs-util'
+import {
+  ecrecover,
+  fromRpcSig,
+  publicToAddress,
+  keccakFromString
+} from 'ethereumjs-util'
 import {validateAddress} from '@docknetwork/sdk/utils/chain-ops';
 import {BLACKLISTED_ETH_ADDR, MAINNET_ADDRESS_SIZE, PAYLOAD_SIZE, SIG_SIZE, TXN_HASH_SIZE} from "./constants";
 
@@ -30,15 +35,16 @@ export function validateStatusRequest(reqBody) {
 
 // Parse request body and verify signature. Return mainnet address, ethereum address, transaction hash, signature and vesting indicator
 export function validateMigrationRequest(reqBody, withBonus = false) {
-  const [payloadBytes, sigBytes] = parseMigrationRequest(reqBody, withBonus);
+  const [payload, sigBytes] = parseMigrationRequest(reqBody, withBonus);
+  const payloadBytes = bs58.decode(payload);
   const mainnetAddress = base58.encode(payloadBytes.slice(0, MAINNET_ADDRESS_SIZE));
   // The address should be valid for the configured network type
-  if (!validateAddress(mainnetAddress, process.env.DOCK_NETWORK_TYPE)) {
+  /*if (!validateAddress(mainnetAddress, process.env.DOCK_NETWORK_TYPE)) {
     throw new Error(`${mainnetAddress} is not a valid address for ${process.env.DOCK_NETWORK_TYPE}net`)
-  }
+  }*/
 
   // The payload does not contain the Ethereum address, its inferred from the signature.
-  const ethAddress = getAddressesFromPayloadSig(payloadBytes, sigBytes);
+  const ethAddress = getAddressesFromPayloadSig(payload, sigBytes);
   // The payload is in form <Mainnet address><Eth Txn hash>[<Vesting indicator>]
   const txnHash = Buffer.from(payloadBytes.slice(MAINNET_ADDRESS_SIZE, MAINNET_ADDRESS_SIZE+TXN_HASH_SIZE)).toString('hex');
 
@@ -59,9 +65,25 @@ export function validateMigrationRequest(reqBody, withBonus = false) {
   return [mainnetAddress, ethAddress, txnHash, sigBytes.toString('hex'), isVesting];
 }
 
-// Verify signature on payload and return the address that signed the payload.
-export function getAddressesFromPayloadSig(payloadBytes, sigBytes) {
-  const payloadHash = hashPersonalMessage(payloadBytes);
+/**
+ * Generate keccak-256 hash for signing as per https://web3js.readthedocs.io/en/v1.2.4/web3-eth-personal.html#sign
+  * @param {string} message
+ * @returns {Buffer}
+ */
+export function hashMessageForSigning(message) {
+  const prefixed = "\x19Ethereum Signed Message:\n" + message.length.toString() + message;
+  return keccakFromString(prefixed);
+}
+
+/**
+ * Verify signature on payload and return the address that signed the payload.
+ * @param payload
+ * @param sigBytes
+ * @returns {string}
+ */
+export function getAddressesFromPayloadSig(payload, sigBytes) {
+  const payloadHash = hashMessageForSigning(payload);
+
   let sig;
   try {
     sig = fromRpcSig('0x' + sigBytes.toString('hex'));
@@ -77,7 +99,7 @@ export function getAddressesFromPayloadSig(payloadBytes, sigBytes) {
   return publicToAddress(pubKey).toString('hex');
 }
 
-// Parse request body containing payload and signature and return payload without checksum and signature both as Buffers
+// Parse request body containing payload and signature and return payload as base58-check string and signature as Buffer
 export function parseMigrationRequest(reqBody, withBonus = false) {
   const { payload, signature } = reqBody;
   let sigBytes, payloadBytes;
@@ -95,17 +117,17 @@ export function parseMigrationRequest(reqBody, withBonus = false) {
   }
 
   // The vesting indicator is only present with `withBonus` is true
-  const payloadSize = PAYLOAD_SIZE + (withBonus ? 1 : 0);
+  /*const payloadSize = PAYLOAD_SIZE + (withBonus ? 1 : 0);
   if (payloadBytes.length !== payloadSize) {
     throw new Error(`Payload must be of size ${payloadSize} bytes but was ${payloadBytes.length} bytes`);
-  }
+  }*/
 
   if (sigBytes.length !== SIG_SIZE) {
     throw new Error(`Signature must be of size ${SIG_SIZE} bytes but was ${sigBytes.length} bytes`);
   }
 
   // Signature is on bytes including checksum
-  return [bs58.decode(payload), sigBytes];
+  return [payload, sigBytes];
 }
 
 // Check that the Ethereum address is not blacklisted
@@ -126,7 +148,7 @@ export function removePrefixFromHex(string) {
   if (string.startsWith('0x')) {
     return string.slice(2);
   }
-  return string
+  return string;
 }
 
 // Check if bonus window is closed

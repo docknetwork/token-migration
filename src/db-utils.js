@@ -15,6 +15,10 @@ export class DBClient {
             database: process.env.DB_NAME,
             password: process.env.DB_PASS,
             port: process.env.DB_PORT,
+            // number of milliseconds a client must sit idle in the pool and not be checked out
+            // before it is disconnected from the backend and discarded
+            // 0 means disable auto-disconnection of idle clients
+            idleTimeoutMillis: 0,
         });
     }
 
@@ -38,7 +42,7 @@ export class DBClient {
 
 export async function getRequestStatus(dbClient, address, txnHash) {
     const sql = 'SELECT status FROM public.requests WHERE eth_address = $1 AND eth_txn_hash = $2 LIMIT 1';
-    const values = [removePrefixFromHex(address), removePrefixFromHex(txnHash)];
+    const values = [removePrefixFromHex(address).toLowerCase(), removePrefixFromHex(txnHash).toLowerCase()];
 
     let res;
     try {
@@ -74,22 +78,35 @@ export async function trackNewRequest(dbClient, mainnetAddress, ethAddress, txnH
     }
 }
 
-// Get requests for which migration has not been done.
+/**
+ * Get requests for which migration has not been done.
+ * @param dbClient
+ * @returns {Promise<*>}
+ */
 export async function getPendingMigrationRequests(dbClient) {
     const sql = `SELECT * FROM public.requests WHERE status >= ${REQ_STATUS.SIG_VALID} AND status < ${REQ_STATUS.INITIAL_TRANSFER_DONE}`;
     const res = await dbClient.query(sql);
     return res.rows;
 }
 
-// Get requests for which migration has been done but bonus not calculated yet
+/**
+ * Get requests for which migration has been done but bonus not calculated yet
+ * @param dbClient
+ * @returns {Promise<*>}
+ */
 export async function getPendingBonusCalcRequests(dbClient) {
     const sql = `SELECT * FROM public.requests WHERE status = ${REQ_STATUS.INITIAL_TRANSFER_DONE} AND is_vesting IS NOT NULL`;
     const res = await dbClient.query(sql);
     return res.rows;
 }
 
-// Get requests for which bonus has been calculated but not calculated yet. Returns the request such that the requests
-// opting for vesting come first
+/**
+ * Get requests for which bonus has been calculated but not calculated yet. Returns the request such that the requests
+ opting for vesting come first
+ * @param dbClient
+ * @param batchSize
+ * @returns {Promise<*>}
+ */
 export async function getPendingBonusDispRequests(dbClient, batchSize) {
     const sql = `SELECT * FROM public.requests WHERE status = ${REQ_STATUS.BONUS_CALCULATED} AND is_vesting IS NOT NULL ORDER BY is_vesting DESC LIMIT ${batchSize}`;
     const res = await dbClient.query(sql);

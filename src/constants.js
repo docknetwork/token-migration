@@ -1,4 +1,4 @@
-// ABI of `Transfer` event
+// ABI of `Transfer` event. The event is emitted on call of `transfer` or `transferFrom` functions of the contract.
 export const TRANSFER_EVENT_TYPE = [{
     type: 'address',
     name: 'from',

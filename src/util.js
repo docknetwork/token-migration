@@ -99,7 +99,12 @@ export function getAddressesFromPayloadSig(payload, sigBytes) {
   return publicToAddress(pubKey).toString('hex');
 }
 
-// Parse request body containing payload and signature and return payload as base58-check string and signature as Buffer
+/**
+ * Parse request body containing payload and signature and return payload as base58-check string and signature as Buffer
+ * @param reqBody
+ * @param withBonus
+ * @returns {(*|Buffer)[]}
+ */
 export function parseMigrationRequest(reqBody, withBonus = false) {
   const { payload, signature } = reqBody;
   let sigBytes, payloadBytes;
@@ -117,10 +122,10 @@ export function parseMigrationRequest(reqBody, withBonus = false) {
   }
 
   // The vesting indicator is only present with `withBonus` is true
-  /*const payloadSize = PAYLOAD_SIZE + (withBonus ? 1 : 0);
+  const payloadSize = PAYLOAD_SIZE + (withBonus ? 1 : 0);
   if (payloadBytes.length !== payloadSize) {
     throw new Error(`Payload must be of size ${payloadSize} bytes but was ${payloadBytes.length} bytes`);
-  }*/
+  }
 
   if (sigBytes.length !== SIG_SIZE) {
     throw new Error(`Signature must be of size ${SIG_SIZE} bytes but was ${sigBytes.length} bytes`);

@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import slowDown from 'express-slow-down';
 import {DBClient, trackNewRequest, getRequestStatus} from './db-utils';
 import {validateStatusRequest, validateMigrationRequest, checkReqWindow} from "./util";
+import {setupLoggly, logMigrationReq} from './log';
 
 require('dotenv').config();
 
@@ -10,6 +11,8 @@ let dbClient;
 
 async function processMigrationReq(req, res, withBonus = false) {
   try {
+    logMigrationReq(req.body);
+
     checkReqWindow(withBonus);
 
     // The signature needs to be persisted so that can be used in potential disputes resolution later.
@@ -31,6 +34,9 @@ async function processMigrationReq(req, res, withBonus = false) {
       error: null,
     });
   } catch (e) {
+    // Log request again but with error. Have a better way like with finally or something
+    logMigrationReq(req.body, e);
+
     res.statusCode = 400;
     res.json({
       error: e.toString(),
@@ -72,6 +78,8 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
 
   dbClient = new DBClient();
   await dbClient.start();
+
+  setupLoggly();
 
   // Use JSON body parser with limit as we know its b58check of 67 bytes and hex of 64 bytes signature
   server.use(bodyParser.json({

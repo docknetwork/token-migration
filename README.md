@@ -63,6 +63,11 @@ VESTING_BONUS_POOL = 30000000000000
 AWS_ACCESS_ID = <Need for sending email>
 AWS_SECRET_KEY = <Need for sending email>
 AWS_SES_EMAIL_REGION = <Need for sending email>
+
+# Loggly config
+LOGGLY_TOKEN = <your token>
+LOGGLY_SUBDOMAIN = <your domain>
+LOGGLY_ENV = <testing or prod or dev, to distinguish beteween dev and prod environments>
 ```
 
 ## Running with Infura

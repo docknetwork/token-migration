@@ -39,9 +39,9 @@ export function validateMigrationRequest(reqBody, withBonus = false) {
   const payloadBytes = bs58.decode(payload);
   const mainnetAddress = base58.encode(payloadBytes.slice(0, MAINNET_ADDRESS_SIZE));
   // The address should be valid for the configured network type
-  /*if (!validateAddress(mainnetAddress, process.env.DOCK_NETWORK_TYPE)) {
+  if (!validateAddress(mainnetAddress, process.env.DOCK_NETWORK_TYPE)) {
     throw new Error(`${mainnetAddress} is not a valid address for ${process.env.DOCK_NETWORK_TYPE}net`)
-  }*/
+  }
 
   // The payload does not contain the Ethereum address, its inferred from the signature.
   const ethAddress = getAddressesFromPayloadSig(payload, sigBytes);

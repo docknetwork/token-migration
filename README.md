@@ -85,7 +85,8 @@ The application and tests requires the DB to be created beforehand.
 **A compound primary key with transaction hash and eth address is used instead of just transaction hash as multiple calls 
 might be made to the token's contract `transfer` or `transferFrom` from another contract to save fees due to txn overhead. 
 But it is assumed that such a contract will not use the same `from` address more than once in a single contract call such that 
-per Eth transaction one sender address is used only once** 
+per Eth transaction one sender address is used only once. 
+The compound key also protects against spammers doing a DOS attack where they submit a legitimate holder's transaction hash with they address, thus blocking the legitimate user forever** 
 ```
 CREATE TABLE public.requests
 (

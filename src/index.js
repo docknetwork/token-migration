@@ -1,9 +1,10 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import slowDown from 'express-slow-down';
-import {DBClient, trackNewRequest, getRequestStatus} from './db-utils';
+import {DBClient, trackNewRequest, getRequestFromDB} from './db-utils';
 import {validateStatusRequest, validateMigrationRequest, checkReqWindow} from "./util";
 import {setupLoggly, logMigrationReq} from './log';
+import {prepareReqStatusForApiResp} from "./migrations";
 
 require('dotenv').config();
 
@@ -57,12 +58,13 @@ async function onMigrationRequest(req, res) {
 async function onStatusRequest(req, res) {
   try {
     const [ethAddress, txnHash] = await validateStatusRequest(req.body);
-    const status = await getRequestStatus(dbClient, ethAddress, txnHash);
+    const req = await getRequestFromDB(dbClient, ethAddress, txnHash);
+    const details = prepareReqStatusForApiResp(req);
 
     res.statusCode = 200;
     res.json({
       error: null,
-      status,
+      details,
     });
   } catch (e) {
     res.statusCode = 400;

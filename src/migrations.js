@@ -8,7 +8,7 @@ import {
     markRequestParsedAndConfirmed
 } from "./db-utils";
 import {getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './eth-txn-utils'
-import {REQ_STATUS} from "./constants";
+import {MIGRATION_SUPPORT_MSG, REQ_STATUS, MICRO_DOCK} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
 import BN from 'bn.js';
 import {alarmMigratorIfNeeded} from "./email-utils";
@@ -56,6 +56,89 @@ export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
     } else {
         return dockTokens;
     }
+}
+
+function getTokenSplit(req, isVesting) {
+    const initial = erc20ToInitialMigrationTokens(req.erc20, isVesting);
+    return [initial.toString()+MICRO_DOCK, isVesting ? getVestingAmountFromMigratedTokens(req.erc20).toString()+MICRO_DOCK : '0'];
+}
+
+function getVestingMessageForUnMigrated(req) {
+    const [initial, later] = getTokenSplit(req, true);
+    return `You will be given ${initial} soon and the remaining ${later} will be given along with a bonus as part of vesting`;
+}
+
+function getVestingMessageForMigrated(req) {
+    const [initial, later] = getTokenSplit(req, true);
+    return `You have been given ${initial} and the remaining ${later} will be given along with a bonus as part of vesting`;
+}
+
+export function prepareReqStatusForApiResp(req) {
+    const details = {
+        status: req.status
+    };
+
+    if (req.status === REQ_STATUS.INVALID_BLACKLIST) {
+        details.messages = [`Migration request has been received but the sender address is blacklisted. ${MIGRATION_SUPPORT_MSG}`];
+        return details;
+    }
+
+    if (req.status === REQ_STATUS.INVALID) {
+        details.messages = [`Migration request has been received but the request is invalid. It maybe due to sending the transaction hash being not for Dock ERC-20 tokens, or the signer of the message did not match the sender or something else. ${MIGRATION_SUPPORT_MSG}`];
+        return details;
+    }
+
+    const messages = [`You have requested migration for the mainnet address ${req.mainnet_address}.`];
+
+    if (req.is_vesting === true) {
+        messages.push(`You have opted for vesting and are eligible for vesting bonus.`);
+    }
+    if (req.is_vesting === false) {
+        messages.push(`You have not opted for vesting.`);
+    }
+
+    if (req.status === REQ_STATUS.SIG_VALID) {
+        messages.push('Your request has been received. Waiting for sufficient confirmations to begin the migration.');
+    }
+
+    if (req.status === REQ_STATUS.TXN_PARSED) {
+        messages.push('Your request has been received and successfully parsed. It mill be migrated soon.');
+        if (req.is_vesting === true) {
+            messages.push(getVestingMessageForUnMigrated(req));
+        }
+    }
+
+    if (req.status === REQ_STATUS.TXN_CONFIRMED) {
+        messages.push('Your request has been received and has had sufficient confirmations. It mill be migrated soon.');
+        if (req.is_vesting === true) {
+            messages.push(getVestingMessageForUnMigrated(req));
+        }
+    }
+
+    // There wouldn't be in much delay between BONUS_CALCULATED and BONUS_TRANSFERRED, at max 1 hour.
+    if ((req.status === REQ_STATUS.INITIAL_TRANSFER_DONE) || (req.status === REQ_STATUS.BONUS_CALCULATED)) {
+        messages.push(`Your request has been processed successfully and tokens have been sent to your mainnet address in block 0x${req.migration_txn_hash}.`);
+        if (req.is_vesting === true) {
+            messages.push(getVestingMessageForMigrated(req));
+        }
+    }
+
+    if (req.status === REQ_STATUS.BONUS_TRANSFERRED) {
+        messages.push('Your request has been processed successfully and your tokens along with bonus have been transferred to your mainnet address.');
+        messages.push(`The initial tokens were given in block 0x${req.migration_txn_hash}.`);
+        if (req.is_vesting !== null) {
+            messages.push(`Your bonus has been transferred in block 0x${req.bonus_txn_hash}.`);
+        }
+        if (req.is_vesting === true) {
+            messages.push(`You have been given a swap bonus of ${req.swap_bonus_tokens+MICRO_DOCK} and ${req.vesting_bonus_tokens+MICRO_DOCK} of your balance is vesting.`);
+        }
+        if (req.is_vesting === false) {
+            messages.push(`You have been given a swap bonus of ${req.swap_bonus_tokens+MICRO_DOCK}`);
+        }
+    }
+
+    details['messages'] = messages;
+    return details;
 }
 
 /**

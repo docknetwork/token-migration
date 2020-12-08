@@ -21,6 +21,12 @@ export const PAYLOAD_SIZE = MAINNET_ADDRESS_SIZE + TXN_HASH_SIZE;
 // Ethereum signatures are 65 bytes
 export const SIG_SIZE = 65;
 
+const MIGRATION_SUPPORT_EMAIL = 'support@dock.io';
+
+export const MIGRATION_SUPPORT_MSG = `Please contact ${MIGRATION_SUPPORT_EMAIL} to enquire further. Share the transaction hash and your ethereum address in the email.`;
+
+export const MICRO_DOCK = '\u03BCDOCK';
+
 // TODO: Add more addresses blacklisted by exchanges etc
 export const BLACKLISTED_ETH_ADDR = [
     // Kucoin Sep-20 hacker

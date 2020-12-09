@@ -46,7 +46,7 @@ contract("DockToken", accounts => {
 
         // Get the RPC endpoint of truffle's Eth node by querying injected RPC
 
-        const host = web3._requestManager.provider.host;
+        // const host = web3._requestManager.provider.host;
         // const newWeb3 = new Web3(new Web3.providers.HttpProvider(host));
         // const block = await newWeb3.eth.getBlock('latest');
         // console.log('Current block', block);

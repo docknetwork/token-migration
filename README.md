@@ -38,7 +38,7 @@ DB_NAME = token-migration
 SCHEDULER_FREQ = 60000
 
 # Whether connecting to Dock's `main` or `test` network. This affects address validation 
-DOCK_NETWORK_TYPE = test
+DOCK_NETWORK_TYPE = main
 DOCK_NODE_ENDPOINT = <RPC endpoint of node>
 MIGRATOR_ADDR = <Migrator's address>
 MIGRATOR_SK = <Migrator's secret URI>
@@ -112,8 +112,6 @@ ALTER TABLE "public".requests OWNER to postgres;
 CREATE INDEX Status ON "public".requests USING btree (status) TABLESPACE pg_default;
    
 CREATE INDEX "IsVesting" ON "public".requests USING hash (is_vesting) TABLESPACE pg_default;
-
-CREATE INDEX "WillGetBonus" ON "public".requests USING hash (will_get_bonus) TABLESPACE pg_default;
 ```
 
 ## Testing

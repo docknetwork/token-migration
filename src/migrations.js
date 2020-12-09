@@ -12,6 +12,7 @@ import {MIGRATION_SUPPORT_MSG, REQ_STATUS, MICRO_DOCK} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
 import BN from 'bn.js';
 import {alarmMigratorIfNeeded} from "./email-utils";
+import {logMigrationWarning} from './log';
 
 /**
  * Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
@@ -58,21 +59,26 @@ export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
     }
 }
 
-function getTokenSplit(req, isVesting) {
+export function getTokenSplit(req, isVesting) {
     const initial = erc20ToInitialMigrationTokens(req.erc20, isVesting);
     return [initial.toString()+MICRO_DOCK, isVesting ? getVestingAmountFromMigratedTokens(req.erc20).toString()+MICRO_DOCK : '0'];
 }
 
-function getVestingMessageForUnMigrated(req) {
+export function getVestingMessageForUnMigrated(req) {
     const [initial, later] = getTokenSplit(req, true);
-    return `You will be given ${initial} soon and the remaining ${later} will be given along with a bonus as part of vesting`;
+    return `You will receive ${initial} soon and the remaining ${later} will be given along with a bonus as part of vesting.`;
 }
 
-function getVestingMessageForMigrated(req) {
+export function getVestingMessageForMigrated(req) {
     const [initial, later] = getTokenSplit(req, true);
-    return `You have been given ${initial} and the remaining ${later} will be given along with a bonus as part of vesting`;
+    return `You have been given ${initial} and the remaining ${later} will be given along with a bonus as part of vesting.`;
 }
 
+/**
+ * Prepare an informative status for a holder querying his migration status.
+ * @param req - The DB request
+ * @returns {{status: *}}
+ */
 export function prepareReqStatusForApiResp(req) {
     const details = {
         status: req.status
@@ -84,18 +90,23 @@ export function prepareReqStatusForApiResp(req) {
     }
 
     if (req.status === REQ_STATUS.INVALID) {
-        details.messages = [`Migration request has been received but the request is invalid. It maybe due to sending the transaction hash being not for Dock ERC-20 tokens, or the signer of the message did not match the sender or something else. ${MIGRATION_SUPPORT_MSG}`];
+        details.messages = [`Migration request has been received but the request is invalid. It maybe due to sending the transaction hash not being for Dock ERC-20 tokens, or the signer of the message did not match the sender or something else. ${MIGRATION_SUPPORT_MSG}`];
         return details;
     }
 
-    const messages = [`You have requested migration for the mainnet address ${req.mainnet_address}.`];
+    let firstMsg = `You have requested migration for the mainnet address ${req.mainnet_address}`;
 
     if (req.is_vesting === true) {
-        messages.push(`You have opted for vesting and are eligible for vesting bonus.`);
+        firstMsg += ' and have opted for vesting bonus.';
     }
     if (req.is_vesting === false) {
-        messages.push(`You have not opted for vesting.`);
+        firstMsg += ' but have not opted for vesting bonus.';
     }
+    if (req.is_vesting === null) {
+        firstMsg += '.'
+    }
+
+    const messages = [firstMsg];
 
     if (req.status === REQ_STATUS.SIG_VALID) {
         messages.push('Your request has been received. Waiting for sufficient confirmations to begin the migration.');
@@ -106,12 +117,20 @@ export function prepareReqStatusForApiResp(req) {
         if (req.is_vesting === true) {
             messages.push(getVestingMessageForUnMigrated(req));
         }
+        if (req.is_vesting === false) {
+            const [initial, ] = getTokenSplit(req, false);
+            messages.push(`You will receive ${initial} soon.`);
+        }
     }
 
     if (req.status === REQ_STATUS.TXN_CONFIRMED) {
         messages.push('Your request has been received and has had sufficient confirmations. It mill be migrated soon.');
         if (req.is_vesting === true) {
             messages.push(getVestingMessageForUnMigrated(req));
+        }
+        if (req.is_vesting === false) {
+            const [initial, ] = getTokenSplit(req, false);
+            messages.push(`You will receive ${initial} soon.`);
         }
     }
 
@@ -120,6 +139,10 @@ export function prepareReqStatusForApiResp(req) {
         messages.push(`Your request has been processed successfully and tokens have been sent to your mainnet address in block 0x${req.migration_txn_hash}.`);
         if (req.is_vesting === true) {
             messages.push(getVestingMessageForMigrated(req));
+        }
+        if (req.is_vesting === false) {
+            const [initial, ] = getTokenSplit(req, false);
+            messages.push(`You have been given ${initial}.`);
         }
     }
 
@@ -189,7 +212,7 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
     }
 
     if (selected < confirmed.length) {
-        console.warn(`${confirmed.length - selected} confirmed requests could not be migrated`);
+        logMigrationWarning(`${confirmed.length - selected} confirmed requests could not be migrated`);
     }
 
     // Do the migration. Migration is atomic, either all reqs are migrated or none.
@@ -234,7 +257,6 @@ export function isValidTransferFrom(txn, ethAddr) {
     return !((txn.status === "rejected") || (removePrefixFromHex(txn.from).toLowerCase() !== ethAddr))
 }
 
-// TODO: A better alternative to console.info and console.warn here are using an external logging service
 /**
  * Process any pending migration requests, includes all (confirmed and unconfirmed) valid requests
  * @param dbClient
@@ -269,7 +291,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
             // Update status in DB
             await updateMigratedRequestsInDb(dbClient, blockHash, migrated);
         } catch (e) {
-            console.warn(`Migration attempt of confirmed requests failed with error ${e}`)
+            logMigrationWarning(`Migration attempt of confirmed requests failed with error ${e}`);
         }
     }
 
@@ -333,9 +355,13 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     console.info(`Updating ${dbWritesForUnMigratedReqs.length} requests in DB before migration`)
 
     if (confirmedReqs.length > 0) {
-        // Note: If the migrator's address is used outside of this code then there is a chance that value of `allowedMigrations` won't be
-        // correct between now and previous invocation of `migrateConfirmedRequests` in this function
-        const [blockHash, migrated, ] = await migrateConfirmedRequests(dockNodeClient, confirmedReqs, allowedMigrations, balanceAsBn);
-        await updateMigratedRequestsInDb(dbClient, blockHash, migrated);
+        try {
+            // Note: If the migrator's address is used outside of this code then there is a chance that value of `allowedMigrations` won't be
+            // correct between now and previous invocation of `migrateConfirmedRequests` in this function
+            const [blockHash, migrated, ] = await migrateConfirmedRequests(dockNodeClient, confirmedReqs, allowedMigrations, balanceAsBn);
+            await updateMigratedRequestsInDb(dbClient, blockHash, migrated);
+        } catch (e) {
+            logMigrationWarning(`Migration attempt of confirmed requests failed with error ${e}`);
+        }
     }
 }

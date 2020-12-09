@@ -3,7 +3,7 @@ import bodyParser from 'body-parser';
 import slowDown from 'express-slow-down';
 import {DBClient, trackNewRequest, getRequestFromDB} from './db-utils';
 import {validateStatusRequest, validateMigrationRequest, checkReqWindow} from "./util";
-import {setupLoggly, logMigrationReq} from './log';
+import {setupLogglyForAPI, logMigrationReq} from './log';
 import {prepareReqStatusForApiResp} from "./migrations";
 
 require('dotenv').config();
@@ -58,8 +58,10 @@ async function onMigrationRequest(req, res) {
 async function onStatusRequest(req, res) {
   try {
     const [ethAddress, txnHash] = await validateStatusRequest(req.body);
-    const req = await getRequestFromDB(dbClient, ethAddress, txnHash);
-    const details = prepareReqStatusForApiResp(req);
+    const dbReq = await getRequestFromDB(dbClient, ethAddress, txnHash);
+    console.log(dbReq);
+    const details = prepareReqStatusForApiResp(dbReq);
+    console.log(details);
 
     res.statusCode = 200;
     res.json({
@@ -81,7 +83,7 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
   dbClient = new DBClient();
   await dbClient.start();
 
-  setupLoggly();
+  setupLogglyForAPI();
 
   // Use JSON body parser with limit as we know its b58check of 67 bytes and hex of 64 bytes signature
   server.use(bodyParser.json({

@@ -2,6 +2,7 @@ import {DBClient} from './db-utils';
 import {processPendingRequests} from "./migrations";
 import {getNewWeb3MainnetClient} from "./eth-txn-utils";
 import {DockNodeClient} from "./dock-node-utils";
+import {setupLogglyForScheduler} from "./log";
 
 require('dotenv').config();
 
@@ -33,6 +34,8 @@ void async function() {
     web3Client = getNewWeb3MainnetClient();
     dockNodeClient = new DockNodeClient();
     await dockNodeClient.start();
+
+    setupLogglyForScheduler();
 
     await schedule();
 }();

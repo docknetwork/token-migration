@@ -30,7 +30,8 @@ export const MICRO_DOCK = ' \u03BCDOCK';
 // TODO: Add more addresses blacklisted by exchanges etc
 export const BLACKLISTED_ETH_ADDR = [
     // Kucoin Sep-20 hacker
-    'eb31973e0febf3e3d7058234a5ebbae1ab4b8c23'
+    'eb31973e0febf3e3d7058234a5ebbae1ab4b8c23',
+    '0f9f22c27122301d5c7d2f9aef2c1c612d08ed34',
 ]
 
 // Status tracked in database for each migration request passing signature verification

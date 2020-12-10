@@ -60,7 +60,7 @@ async function onStatusRequest(req, res) {
     const [ethAddress, txnHash] = await validateStatusRequest(req.body);
     const dbReq = await getRequestFromDB(dbClient, ethAddress, txnHash);
     const details = prepareReqStatusForApiResp(dbReq);
-    
+
     res.statusCode = 200;
     res.json({
       error: null,

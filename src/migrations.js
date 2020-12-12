@@ -113,7 +113,7 @@ export function prepareReqStatusForApiResp(req) {
     }
 
     if (req.status === REQ_STATUS.TXN_PARSED) {
-        messages.push('Your request has been received and successfully parsed. It mill be migrated soon.');
+        messages.push('Your request has been received and successfully parsed. It will be migrated soon.');
         if (req.is_vesting === true) {
             messages.push(getVestingMessageForUnMigrated(req));
         }
@@ -124,7 +124,7 @@ export function prepareReqStatusForApiResp(req) {
     }
 
     if (req.status === REQ_STATUS.TXN_CONFIRMED) {
-        messages.push('Your request has been received and has had sufficient confirmations. It mill be migrated soon.');
+        messages.push('Your request has been received and has had sufficient confirmations. It will be migrated soon.');
         if (req.is_vesting === true) {
             messages.push(getVestingMessageForUnMigrated(req));
         }

@@ -109,7 +109,7 @@ describe('Migration testing', () => {
         expect(details4.status).toBe(REQ_STATUS.TXN_PARSED);
         expect(details4.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
         expect(details4.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
-        expect(details4.messages[1]).toBe('Your request has been received and successfully parsed. It mill be migrated soon.');
+        expect(details4.messages[1]).toBe('Your request has been received and successfully parsed. It will be migrated soon.');
         expect(details4.messages[2]).toBe(`You will receive ${i1} soon and the remaining ${l1} will be given along with a bonus as part of vesting.`);
 
         const details5 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_PARSED, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000'});
@@ -117,7 +117,7 @@ describe('Migration testing', () => {
         expect(details5.status).toBe(REQ_STATUS.TXN_PARSED);
         expect(details5.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
         expect(details5.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
-        expect(details5.messages[1]).toBe('Your request has been received and successfully parsed. It mill be migrated soon.');
+        expect(details5.messages[1]).toBe('Your request has been received and successfully parsed. It will be migrated soon.');
         expect(details5.messages[2]).toBe(`You will receive ${i3} soon.`);
 
         const details6 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_CONFIRMED, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000'});
@@ -125,7 +125,7 @@ describe('Migration testing', () => {
         expect(details6.status).toBe(REQ_STATUS.TXN_CONFIRMED);
         expect(details6.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
         expect(details6.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
-        expect(details6.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It mill be migrated soon.');
+        expect(details6.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It will be migrated soon.');
         expect(details6.messages[2]).toBe(`You will receive ${i4} soon and the remaining ${l4} will be given along with a bonus as part of vesting.`);
 
         const details7 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_CONFIRMED, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000'});
@@ -133,7 +133,7 @@ describe('Migration testing', () => {
         expect(details7.status).toBe(REQ_STATUS.TXN_CONFIRMED);
         expect(details7.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
         expect(details7.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
-        expect(details7.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It mill be migrated soon.');
+        expect(details7.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It will be migrated soon.');
         expect(details7.messages[2]).toBe(`You will receive ${i5} soon.`);
 
         const details8 = prepareReqStatusForApiResp({status: REQ_STATUS.INITIAL_TRANSFER_DONE, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000', migration_txn_hash: 'abc'});

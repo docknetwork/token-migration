@@ -8,11 +8,12 @@ import {
     markRequestParsedAndConfirmed
 } from "./db-utils";
 import {getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './eth-txn-utils'
-import {MIGRATION_SUPPORT_MSG, REQ_STATUS, MICRO_DOCK} from "./constants";
+import {MIGRATION_SUPPORT_MSG, REQ_STATUS} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
 import BN from 'bn.js';
 import {alarmMigratorIfNeeded} from "./email-utils";
 import {logMigrationWarning} from './log';
+import {formatBalance} from '@polkadot/util';
 
 /**
  * Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
@@ -59,9 +60,24 @@ export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
     }
 }
 
+/**
+ * Format given balance as 6 decimal digit number and add symbol `k` and `M` for kilo and Mega respectively.
+ * @param balance
+ * @returns {string}
+ */
+function formatBal(balance) {
+    return formatBalance(balance, { withSi: true, decimals: 6, withUnit: 'DCK'})
+}
+
+/**
+ * Split tokens into initial migration amount and amount for vesting
+ * @param req
+ * @param isVesting
+ * @returns {(string|string)[]}
+ */
 export function getTokenSplit(req, isVesting) {
     const initial = erc20ToInitialMigrationTokens(req.erc20, isVesting);
-    return [initial.toString()+MICRO_DOCK, isVesting ? getVestingAmountFromMigratedTokens(req.erc20).toString()+MICRO_DOCK : '0'];
+    return [formatBal(initial), isVesting ? formatBal(getVestingAmountFromMigratedTokens(req.erc20)) : '0'];
 }
 
 export function getVestingMessageForUnMigrated(req) {
@@ -153,10 +169,10 @@ export function prepareReqStatusForApiResp(req) {
             messages.push(`Your bonus has been transferred in block 0x${req.bonus_txn_hash}.`);
         }
         if (req.is_vesting === true) {
-            messages.push(`You have been given a swap bonus of ${req.swap_bonus_tokens+MICRO_DOCK} and ${req.vesting_bonus_tokens+MICRO_DOCK} of your balance is vesting.`);
+            messages.push(`You have been given a swap bonus of ${formatBal(req.swap_bonus_tokens)} and ${formatBal(req.vesting_bonus_tokens)} of your balance is vesting.`);
         }
         if (req.is_vesting === false) {
-            messages.push(`You have been given a swap bonus of ${req.swap_bonus_tokens+MICRO_DOCK}`);
+            messages.push(`You have been given a swap bonus of ${formatBal(req.swap_bonus_tokens)}`);
         }
     }
 
@@ -180,13 +196,12 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
         n.migration_tokens = erc20ToInitialMigrationTokens(n.erc20, n.is_vesting);
         return n;
     });
-    // Try to send migration for maximum amount, sort in descending order.
-    // XXX: Consider sorting in increasing order to migrate maximum requests
+    // Try to send migration for maximum requests, sort in increasing order.
     confirmed.sort(function(a, b) {
         if (a.migration_tokens.lt(b.migration_tokens)) {
-            return 1;
-        } else if (b.migration_tokens.lt(a.migration_tokens)) {
             return -1;
+        } else if (b.migration_tokens.lt(a.migration_tokens)) {
+            return 1;
         }
         return 0;
     });

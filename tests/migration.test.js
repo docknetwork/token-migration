@@ -1,6 +1,6 @@
 import {erc20ToInitialMigrationTokens, fromERC20ToDockTokens, getVestingAmountFromMigratedTokens, isValidTransferFrom, getTokenSplit, prepareReqStatusForApiResp} from "../src/migrations";
 import {getNewWeb3MainnetClient, getTransactionAsDockERC20TransferToVault} from "../src/eth-txn-utils";
-import {MICRO_DOCK, REQ_STATUS, MIGRATION_SUPPORT_MSG} from "../src/constants";
+import {REQ_STATUS, MIGRATION_SUPPORT_MSG} from "../src/constants";
 
 describe('Migration testing', () => {
     let vaultReal;
@@ -70,19 +70,19 @@ describe('Migration testing', () => {
 
     test('Token split', () => {
         const [i1, l1] = getTokenSplit({erc20: '9194775499990000000000'}, true);
-        expect(i1).toBe('4597387749'+MICRO_DOCK);
-        expect(l1).toBe('4597387750'+MICRO_DOCK);
+        expect(i1).toBe('4.5973 kDCK');
+        expect(l1).toBe('4.5973 kDCK');
 
         const [i2, l2] = getTokenSplit({erc20: '9194775499990000000000'}, false);
-        expect(i2).toBe('9194775499'+MICRO_DOCK);
+        expect(i2).toBe('9.1947 kDCK');
         expect(l2).toBe('0');
 
         const [i3, l3] = getTokenSplit({erc20: '6525911238000000000000'}, true);
-        expect(i3).toBe('3262955619'+MICRO_DOCK);
-        expect(l3).toBe('3262955619'+MICRO_DOCK);
+        expect(i3).toBe('3.2629 kDCK');
+        expect(l3).toBe('3.2629 kDCK');
 
         const [i4, l4] = getTokenSplit({erc20: '6525911238000000000000'}, false);
-        expect(i4).toBe('6525911238'+MICRO_DOCK);
+        expect(i4).toBe('6.5259 kDCK');
         expect(l4).toBe('0');
     });
 

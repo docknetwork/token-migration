@@ -13,10 +13,13 @@ import {alarmMigratorIfNeeded} from "./email-utils";
 
 require('dotenv').config();
 
-// Calculate bonus from given requests fetched from the database. Returns bonus for all requests,
-// total transferred tokens, total transferred by vesting users, total swap bonus, total vesting bonus.
-// The total bonuses to be given will be used to adjust the unminted emission supply
-// Assumes all the initial migrations are done
+/**
+ * Calculate bonus from given requests fetched from the database. Returns bonus for all requests,
+total transferred tokens, total transferred by vesting users, total swap bonus, total vesting bonus.
+The total bonuses to be given will be used to adjust the unminted emission supply
+Assumes all the initial migrations are done
+ * @param {*} requestRows 
+ */
 export function calculateBonuses(requestRows) {
     const totalTransferred = new BN("0");
     const totalTransferredByVestingUsers = new BN("0");
@@ -69,10 +72,13 @@ export async function updateDBWithBonuses(dbClient, requests) {
     await Promise.all(dbWrites);
 }
 
-// Calculate bonuses and update database with bonuses for each migration request. Returns bonus for all requests,
-// total transferred tokens, total transferred by vesting users, total swap bonus, total vesting bonus.
-// The total bonuses to be given will be used to adjust the unminted emission supply.
-// Assumes all the initial migrations are done
+/**
+ * Calculate bonuses and update database with bonuses for each migration request. Returns bonus for all requests,
+total transferred tokens, total transferred by vesting users, total swap bonus, total vesting bonus.
+The total bonuses to be given will be used to adjust the unminted emission supply.
+Assumes all the initial migrations are done
+ * @param {*} dbClient 
+ */
 export async function calculateBonusesAndUpdateDB(dbClient) {
     const requests = await getPendingBonusCalcRequests(dbClient);
     const [updatedRequests, totalTransferred, totalTransferredByVestingUsers, totalSwapBonus, totalVestingBonus] = calculateBonuses(requests);
@@ -80,9 +86,14 @@ export async function calculateBonusesAndUpdateDB(dbClient) {
     return [totalTransferred, totalTransferredByVestingUsers, totalSwapBonus, totalVestingBonus];
 }
 
-// Finds requests that are eligible to be considered for migration or bonus given the current allowed migrations and
-// the balance of the migrator. Selects requests with highest balance first. Sorts the given requests in descending order
-// and returns the number of requests that can be selected from the given requests
+/**
+ * Finds requests that are eligible to be considered for migration or bonus given the current allowed migrations and
+the balance of the migrator. Selects requests with highest balance first. Sorts the given requests in descending order
+and returns the number of requests that can be selected from the given requests
+ * @param {*} requests 
+ * @param {*} allowedMigrations 
+ * @param {*} balance 
+ */
 export function findAndPrepEligibleReqsGivenMigrConstr(requests, allowedMigrations, balance) {
     requests.map((r) => {
         const n = r;
@@ -97,12 +108,12 @@ export function findAndPrepEligibleReqsGivenMigrConstr(requests, allowedMigratio
         return n;
     });
 
-    // XXX: Consider sorting in increasing order to migrate maximum requests
+    // Sorting in increasing order to serve maximum bonus requests
     requests.sort(function(a, b) {
         if (a.total_bonus.lt(b.total_bonus)) {
-            return 1;
-        } else if (b.total_bonus.lt(a.total_bonus)) {
             return -1;
+        } else if (b.total_bonus.lt(a.total_bonus)) {
+            return 1;
         }
         return 0;
     });
@@ -146,7 +157,12 @@ export function prepareForBonusDisbursalReq(requests) {
     return [swapBonusRecips, vestingBonusRecips];
 }
 
-// Update request details for which bonus has been  transferred.
+/**
+ *  Update request details for which bonus has been  transferred.
+ * @param {*} dbClient 
+ * @param {*} requests 
+ * @param {*} blockHash 
+ */
 export async function updateDBPostBonusTrsfr(dbClient, requests, blockHash) {
     const dbReqPromises = [];
     requests.forEach((req) => {

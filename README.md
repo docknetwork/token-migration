@@ -103,7 +103,8 @@ CREATE TABLE public.requests
     migration_tokens varchar(22),
     swap_bonus_tokens varchar(22),
     vesting_bonus_tokens varchar(22),
-    CONSTRAINT requests_pkey PRIMARY KEY (eth_address, eth_txn_hash)
+    received_at timestamp WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT requests_pkey PRIMARY KEY (eth_address, eth_txn_hash),
 )
 TABLESPACE pg_default;
 

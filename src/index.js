@@ -1,10 +1,11 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import slowDown from 'express-slow-down';
-import {DBClient, trackNewRequest, getRequestFromDB} from './db-utils';
+import {DBClient, trackNewRequest, getRequestFromDB, getStatsFromDB} from './db-utils';
 import {validateStatusRequest, validateMigrationRequest, checkReqWindow} from "./util";
 import {setupLogglyForAPI, logMigrationReq} from './log';
 import {prepareReqStatusForApiResp} from "./migrations";
+import basicAuth from 'express-basic-auth';
 
 require('dotenv').config();
 
@@ -74,6 +75,14 @@ async function onStatusRequest(req, res) {
   }
 }
 
+async function onStatsRequest(req, res) {
+  res.statusCode = 200;
+  const stats = await getStatsFromDB(dbClient);
+  res.json({
+    stats,
+  });
+}
+
 const server = express();
 server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => {
   console.log('Server running on port', process.env.API_PORT);
@@ -107,6 +116,10 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
     next();
   });
 
+  const users = {};
+  users[process.env.STATS_ADMIN_NAME] = process.env.STATS_ADMIN_KEY;
+  server.use(basicAuth({users}));
+
   // Listen for migration route
   server.post('/migrate', onMigrationRequest);
 
@@ -114,5 +127,8 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
   server.post('/migrate_with_bonus', onMigrationWithBonusRequest);
 
   // Listen for status route
+  // XXX: This should have been a GET request
   server.post('/status', onStatusRequest);
+
+  server.get('/statistics', onStatsRequest);
 });

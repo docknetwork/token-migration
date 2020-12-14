@@ -147,3 +147,40 @@ export async function updateAfterBonusTransfer(dbClient, ethAddr, txnHash, bonus
     const sql = `UPDATE public.requests SET status = ${REQ_STATUS.BONUS_TRANSFERRED}, bonus_txn_hash = '${bonusTxnHash}' WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
     return dbClient.query(sql);
 }
+
+/**
+ * Get some statistics from DB
+ * @param dbClient
+ * @returns {Promise<{}>}
+ */
+export async function getStatsFromDB(dbClient) {
+    const count = dbClient.query('select count(*) as count from public.requests');
+    const erc20 = dbClient.query('select sum(cast(erc20 as decimal(30, 2))) / 1000000000000000000 as tokens from public.requests');
+    const initialMainnet = dbClient.query('select sum(cast(migration_tokens as decimal(30, 2))) / 1000000 as tokens from public.requests');
+    // Find ERC-20 given by holders willing to vest
+    const lockedForVesting = dbClient.query('select sum(cast(erc20 as decimal(30, 2))) / 1000000000000000000 as tokens from public.requests where is_vesting = true');
+    const resp = await Promise.allSettled([count, erc20, initialMainnet, lockedForVesting]);
+    const stats = {};
+    if (resp[0].status === 'fulfilled') {
+        stats['Migration reqs received so far'] = parseInt(resp[0].value.rows[0].count, 10);
+    } else {
+        console.error('Could not fetch count');
+    }
+    if (resp[1].status === 'fulfilled') {
+        stats['Total ERC-20 received so far'] = parseFloat(resp[1].value.rows[0].tokens).toFixed(4);
+    } else {
+        console.error('Could not fetch erc20');
+    }
+    if (resp[2].status === 'fulfilled') {
+        stats['Total mainnet tokens given so far'] = parseFloat(resp[2].value.rows[0].tokens).toFixed(4);
+    } else {
+        console.error('Could not fetch erc20');
+    }
+    if (resp[3].status === 'fulfilled') {
+        // 50% go towards vesting
+        stats['Tokens locked in vesting so far'] = (resp[3].value.rows[0].tokens / 2).toFixed(4);
+    } else {
+        console.error('Could not fetch erc20');
+    }
+    return stats;
+}

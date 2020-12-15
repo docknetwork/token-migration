@@ -5,19 +5,17 @@ import {
     updateDBWithBonuses
 } from '../src/bonus-utils';
 import BN from "bn.js";
-import {DBClient, trackNewRequest} from "../src/db-utils";
+import {DBClient, trackNewRequest, removeMigrationReq} from "../src/db-utils";
 import {REQ_STATUS} from "../src/constants";
 import {DockNodeClient} from "../src/dock-node-utils";
 import {getBlock, getBlockNo} from "@docknetwork/sdk/utils/chain-ops";
+import {genRanHex} from "./utils";
 
 require('dotenv').config();
 
 describe('Bonus utils', () => {
     // Will hold original values of env variables changed during test as they need to be restored after tests are done
     let sReal, vReal, startReal, ethBTimeReal;
-
-    // For testing only, taken from https://stackoverflow.com/a/58326357
-    const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
     beforeAll(() => {
         sReal = process.env.SWAP_BONUS_POOL;
@@ -209,8 +207,7 @@ describe('Bonus utils', () => {
         // Cleanup
         queries = [];
         reqsWithBonus.forEach(r => {
-            const sql = `DELETE FROM public.requests WHERE eth_address = '${r.eth_address}' AND eth_txn_hash = '${r.eth_txn_hash}'`;
-            queries.push(dbClient.query(sql));
+            queries.push(removeMigrationReq(dbClient, r.eth_address, r.eth_txn_hash));
         });
         await Promise.all(queries);
         await dbClient.stop();

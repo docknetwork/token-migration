@@ -1,4 +1,4 @@
-import {DBClient, getRequestStatus, trackNewRequest} from "../../../build/db-utils";
+import {DBClient, getRequestStatus, trackNewRequest, removeMigrationReq} from "../../../build/db-utils";
 import {DockNodeClient} from "../../../build/dock-node-utils";
 import {processPendingRequests, erc20ToInitialMigrationTokens} from "../../../build/migrations";
 import {REQ_STATUS} from "../../../build/constants";
@@ -267,8 +267,7 @@ contract("DockToken", accounts => {
         for (let i=0; i<5; i++) {
             const ethAddr = removePrefixFromHex(items[i][0]);
             const txnHash = removePrefixFromHex(items[i][1]);
-            const sql = `DELETE from public.requests WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
-            await dbClient.query(sql);
+            await removeMigrationReq(dbClient, ethAddr, txnHash);
         }
     }
 

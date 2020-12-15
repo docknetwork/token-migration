@@ -334,7 +334,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     // Parse and check if any valid requests are confirmed and can be sent for migration
     reqsWithValidSig.forEach((req, index) => {
         const txn = txns[index].value;
-        if (isValidTransferFrom(txn, req.eth_address)) {
+        if (txns[index].status === 'fulfilled' && isValidTransferFrom(txn, req.eth_address)) {
             if (isTxnConfirmedAsOf(txn, currentBlockNumber)) {
                 req.status = REQ_STATUS.TXN_CONFIRMED;
                 req.erc20 = txn.value;

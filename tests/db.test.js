@@ -1,11 +1,9 @@
 import {DBClient, trackNewRequest, getPendingMigrationRequests} from '../src/db-utils';
 import {REQ_STATUS, BLACKLISTED_ETH_ADDR} from '../src/constants';
+import {genRanHex} from "./utils";
 
 describe('DB interaction', () => {
     let dbClient;
-
-    // For testing only, taken from https://stackoverflow.com/a/58326357
-    const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
     beforeAll(async (done) => {
         dbClient = new DBClient();

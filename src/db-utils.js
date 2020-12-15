@@ -149,6 +149,18 @@ export async function updateAfterBonusTransfer(dbClient, ethAddr, txnHash, bonus
 }
 
 /**
+ * Remove a migration request. Not exposed to public API. Intended to be used only in tests or by admin.
+ * @param dbClient
+ * @param ethAddr
+ * @param txnHash
+ * @returns {Promise<*>}
+ */
+export async function removeMigrationReq(dbClient, ethAddr, txnHash) {
+    const sql = `DELETE from public.requests WHERE eth_address = '${ethAddr}' AND eth_txn_hash = '${txnHash}'`;
+    return dbClient.query(sql);
+}
+
+/**
  * Get some statistics from DB
  * @param dbClient
  * @returns {Promise<{}>}

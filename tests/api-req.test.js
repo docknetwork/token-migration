@@ -15,6 +15,11 @@ import {
   hashMessageForSigning
 } from '../src/util';
 
+import {removeMigrationReq} from '../src/db-utils';
+import supertest from 'supertest';
+import {getServer, setupDbForServer} from "../src/server";
+import {setupLogglyForAPI} from "../src/log";
+
 require('dotenv').config();
 
 describe('Validate migration request payload', () => {
@@ -131,6 +136,34 @@ describe('Validate migration request payload', () => {
         expect(addr).toBe(expectedAddr);
       });
     })
+
+    test('API server works', async () => {
+      const server = getServer();
+      // XXX: This logix is tightly coupled with logging and database.
+      const dbClient = await setupDbForServer(server);
+      setupLogglyForAPI();
+      const testingServer = supertest(server);
+      const addr = address.toString('hex');
+      const txH = '5e618464858638cb8b4df51db776c7293d138b170103a999644de87aa93d138a';
+
+      [1, 0].forEach( async (v) => {
+        const [payloadCheck, sig] = genTestPayloadAndSig(v);
+
+        const response1 = await testingServer.post('/migrate_with_bonus').set('Accept', 'application/json').send({payload: payloadCheck, signature: bs58.encode(sig)});
+        expect(response1.status).toBe(200);
+
+        const response2 = await testingServer.post('/status').set('Accept', 'application/json').send({address: addr, txnHash: txH});
+        expect(response2.status).toBe(200);
+
+        const response3 = await testingServer.get('/statistics').set('Accept', 'application/json').auth(process.env.STATS_ADMIN_NAME, process.env.STATS_ADMIN_KEY);
+        expect(response3.status).toBe(200);
+
+        await removeMigrationReq(dbClient, addr, '5e618464858638cb8b4df51db776c7293d138b170103a999644de87aa93d138a');
+      });
+
+      await dbClient.stop();
+
+    }, 20000)
 
     afterAll(() => {
       process.env.BONUS_ENDS_AT = bReal;

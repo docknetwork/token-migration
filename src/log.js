@@ -48,3 +48,18 @@ export function logMigrationWarning(msg) {
         console.warn('Error while logging Scheduler:', e);
     }
 }
+
+/**
+ * Log transaction that was marked invalid
+ * @param msg
+ * @param ethAddr - This is the ethereum address as inferred from signature from migration portal
+ * @param txn - This is the ERC-20 `Transfer` event data.
+ */
+export function logBadTxn(msg, ethAddr, txn) {
+    try {
+        // This isn't really an error on our part.
+        schedulerLogger.log('error', {requester: ethAddr, message: msg, txn: txn});
+    } catch (e) {
+        console.warn('Error while logging Scheduler:', e);
+    }
+}

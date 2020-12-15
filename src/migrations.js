@@ -12,7 +12,7 @@ import {MIGRATION_SUPPORT_MSG, REQ_STATUS} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
 import BN from 'bn.js';
 import {alarmMigratorIfNeeded} from "./email-utils";
-import {logMigrationWarning} from './log';
+import {logMigrationWarning, logBadTxn} from './log';
 import {formatBalance} from '@polkadot/util';
 
 /**
@@ -318,7 +318,6 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
     // Fetch transactions for unconfirmed requests which are valid ERC-20 transfers to the Vault address
     const unconfirmedReqs = (reqsWithValidSig).concat(reqsWithValidTxn);
     const txns = await Promise.allSettled(unconfirmedReqs.map((r) => getTransactionAsDockERC20TransferToVault(web3Client, addPrefixToHex(r.eth_txn_hash))));
-    // console.log(txns);
 
     // Need current block number for checking confirmation
     const currentBlockNumber = await web3Client.eth.getBlockNumber();
@@ -345,6 +344,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
                 dbWritesForUnMigratedReqs.push(markRequestParsed(dbClient, req.eth_address, req.eth_txn_hash, txn.value))
             }
         } else {
+            logBadTxn('Transaction was either not found, or was rejected by the network or was not a token transfer to the Vault', req.eth_address, txns[index]);
             dbWritesForUnMigratedReqs.push(markRequestInvalid(dbClient, req.eth_address, req.eth_txn_hash))
         }
     });

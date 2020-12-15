@@ -116,10 +116,6 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
     next();
   });
 
-  const users = {};
-  users[process.env.STATS_ADMIN_NAME] = process.env.STATS_ADMIN_KEY;
-  server.use(basicAuth({users}));
-
   // Listen for migration route
   server.post('/migrate', onMigrationRequest);
 
@@ -130,5 +126,8 @@ server.listen(process.env.API_PORT, process.env.API_LISTEN_ADDRESS, async () => 
   // XXX: This should have been a GET request
   server.post('/status', onStatusRequest);
 
+  const users = {};
+  users[process.env.STATS_ADMIN_NAME] = process.env.STATS_ADMIN_KEY;
+  server.use('/statistics', basicAuth({users}));
   server.get('/statistics', onStatsRequest);
 });

@@ -166,15 +166,18 @@ export async function removeMigrationReq(dbClient, ethAddr, txnHash) {
  * @returns {Promise<{}>}
  */
 export async function getStatsFromDB(dbClient) {
-    const count = dbClient.query('select count(*) as count from public.requests');
+    const counts = dbClient.query('select count(*) as total, sum(case when status >= 0 then 1 else 0 end) AS valid, sum(case when status < 0 then 1 else 0 end) AS invalid FROM public.requests');
     const erc20 = dbClient.query('select sum(cast(erc20 as decimal(30, 2))) / 1000000000000000000 as tokens from public.requests');
     const initialMainnet = dbClient.query('select sum(cast(migration_tokens as decimal(30, 2))) / 1000000 as tokens from public.requests');
     // Find ERC-20 given by holders willing to vest
     const lockedForVesting = dbClient.query('select sum(cast(erc20 as decimal(30, 2))) / 1000000000000000000 as tokens from public.requests where is_vesting = true');
-    const resp = await Promise.allSettled([count, erc20, initialMainnet, lockedForVesting]);
+    const resp = await Promise.allSettled([counts, erc20, initialMainnet, lockedForVesting]);
     const stats = {};
     if (resp[0].status === 'fulfilled') {
-        stats['Migration reqs received so far'] = parseInt(resp[0].value.rows[0].count, 10);
+        let cnts = resp[0].value.rows[0];
+        stats['Migration reqs received so far'] = parseInt(cnts.total, 10);
+        stats['Valid migration reqs received so far'] = parseInt(cnts.valid, 10);
+        stats['Invalid migration reqs received so far'] = parseInt(cnts.invalid, 10);
     } else {
         console.error('Could not fetch count');
     }

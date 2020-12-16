@@ -10,13 +10,13 @@ import {prepareReqStatusForApiResp} from "./migrations";
 require('dotenv').config();
 
 async function processMigrationReq(req, res, withBonus = false) {
+    let error;
+    const reqBody = req.body;
     try {
-        logMigrationReq(req.body);
-
         checkReqWindow(withBonus);
 
         // The signature needs to be persisted so that can be used in potential disputes resolution later.
-        const [mainnetAddress, ethAddress, txnHash, signature, isVesting] = await validateMigrationRequest(req.body, withBonus)
+        const [mainnetAddress, ethAddress, txnHash, signature, isVesting] = await validateMigrationRequest(reqBody, withBonus)
 
         // XXX: An attacked can submit arbitrary txn hashes with valid signatures on valid payloads. One way to stop them
         // is to fetch txn using hash during this call and reject if sender address does not match the address used in payload
@@ -34,13 +34,13 @@ async function processMigrationReq(req, res, withBonus = false) {
             error: null,
         });
     } catch (e) {
-        // Log request again but with error. Have a better way like with finally or something
-        logMigrationReq(req.body, e);
-
+        error = e;
         res.statusCode = 400;
         res.json({
             error: e.toString(),
         });
+    } finally {
+        logMigrationReq(reqBody, error);
     }
 }
 

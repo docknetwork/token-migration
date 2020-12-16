@@ -28,8 +28,13 @@ void async function() {
 
     const sig = process.argv[3];
     const signature = sig.startsWith('0x') ? bs58.encode(Buffer.from(sig.slice(2), 'hex')) : sig;
-    const [mainnetAddress, ethAddress, txnHash, sigHex, isVesting] = validateMigrationRequest({payload: process.argv[2], signature}, withBonus);
-    const vestingTxt = withBonus ? (isVesting ? 'with vesting' : 'without vesting') : '';
-    console.info(`Migration request ${vestingTxt} was sent for mainnet address ${mainnetAddress} using ethereum transaction 0x${txnHash}.`);
-    console.info(`The request was signed from address 0x${ethAddress} and the signature was 0x${sigHex}.`)
+    try {
+        const [mainnetAddress, ethAddress, txnHash, sigHex, isVesting] = validateMigrationRequest({payload: process.argv[2], signature}, withBonus);
+        const vestingTxt = withBonus ? (isVesting ? 'with vesting' : 'without vesting') : '';
+        console.info(`Migration request ${vestingTxt} was sent for mainnet address ${mainnetAddress} using ethereum transaction 0x${txnHash}.`);
+        console.info(`The request was signed from address 0x${ethAddress} and the signature was 0x${sigHex}.`);
+    } catch (e) {
+        console.error('There was an error with this request');
+        console.error(e.message);
+    }
 }();

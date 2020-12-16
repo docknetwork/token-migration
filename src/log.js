@@ -34,7 +34,7 @@ export function logMigrationReq(reqBody, error) {
         if (error === undefined) {
             winston.log('info', reqBody);
         } else {
-            winston.log('error', {error, req: reqBody});
+            winston.log('error', {error: error, req: reqBody});
         }
     } catch (e) {
         console.warn('Error while logging API:', e);

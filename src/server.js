@@ -40,7 +40,7 @@ async function processMigrationReq(req, res, withBonus = false) {
             error: e.toString(),
         });
     } finally {
-        logMigrationReq(reqBody, error);
+        logMigrationReq(reqBody, error.toString());
     }
 }
 

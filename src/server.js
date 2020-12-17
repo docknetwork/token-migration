@@ -5,7 +5,8 @@ import basicAuth from 'express-basic-auth';
 import {logMigrationReq} from "./log";
 import {checkReqWindow, validateMigrationRequest, validateStatusRequest} from "./util";
 import {DBClient, getRequestFromDB, getStatsFromDB, trackNewRequest} from "./db-utils";
-import {prepareReqStatusForApiResp} from "./migrations";
+import {MIGRATION_SUPPORT_MSG, REQ_STATUS} from "./constants";
+import {formatBal, getTokenSplit, getVestingMessageForMigrated, getVestingMessageForUnMigrated} from "./migrations";
 
 require('dotenv').config();
 
@@ -34,13 +35,13 @@ async function processMigrationReq(req, res, withBonus = false) {
             error: null,
         });
     } catch (e) {
-        error = e;
+        error = e.toString();
         res.statusCode = 400;
         res.json({
-            error: e.toString(),
+            error
         });
     } finally {
-        logMigrationReq(reqBody, error.toString());
+        logMigrationReq(reqBody, error);
     }
 }
 
@@ -88,6 +89,96 @@ async function onStatsRequest(req, res) {
             error: e.toString(),
         });
     }
+}
+
+/**
+ * Prepare an informative status for a holder querying his migration status.
+ * @param req - The DB request
+ * @returns {{status: *}}
+ */
+export function prepareReqStatusForApiResp(req) {
+    const details = {
+        status: req.status
+    };
+
+    if (req.status === REQ_STATUS.INVALID_BLACKLIST) {
+        details.messages = [`Migration request has been received but the sender address is blacklisted. ${MIGRATION_SUPPORT_MSG}`];
+        return details;
+    }
+
+    if (req.status === REQ_STATUS.INVALID) {
+        details.messages = [`Migration request has been received but the request is invalid. It maybe due to sending the transaction hash not being for Dock ERC-20 tokens, or the signer of the message did not match the sender or something else. ${MIGRATION_SUPPORT_MSG}`];
+        return details;
+    }
+
+    let firstMsg = `You have requested migration for the mainnet address ${req.mainnet_address}`;
+
+    if (req.is_vesting === true) {
+        firstMsg += ' and have opted for vesting bonus.';
+    }
+    if (req.is_vesting === false) {
+        firstMsg += ' but have not opted for vesting bonus.';
+    }
+    if (req.is_vesting === null) {
+        firstMsg += '.'
+    }
+
+    const messages = [firstMsg];
+
+    if (req.status === REQ_STATUS.SIG_VALID) {
+        messages.push('Your request has been received. Waiting for sufficient confirmations to begin the migration. You should check back in a few minutes.');
+    }
+
+    if (req.status === REQ_STATUS.TXN_PARSED) {
+        messages.push('Your request has been received and successfully parsed. It will be migrated soon and you should check back in a few minutes.');
+        if (req.is_vesting === true) {
+            messages.push(getVestingMessageForUnMigrated(req));
+        }
+        if (req.is_vesting === false) {
+            const [initial,] = getTokenSplit(req, false);
+            messages.push(`You will receive ${initial} soon.`);
+        }
+    }
+
+    if (req.status === REQ_STATUS.TXN_CONFIRMED) {
+        messages.push('Your request has been received and has had sufficient confirmations. It will be migrated soon and you should check back in a few minutes.');
+        if (req.is_vesting === true) {
+            messages.push(getVestingMessageForUnMigrated(req));
+        }
+        if (req.is_vesting === false) {
+            const [initial,] = getTokenSplit(req, false);
+            messages.push(`You will receive ${initial} soon.`);
+        }
+    }
+
+    // There wouldn't be in much delay between BONUS_CALCULATED and BONUS_TRANSFERRED, at max 1 hour.
+    if ((req.status === REQ_STATUS.INITIAL_TRANSFER_DONE) || (req.status === REQ_STATUS.BONUS_CALCULATED)) {
+        messages.push(`Your request has been processed successfully and tokens have been sent to your mainnet address in block 0x${req.migration_txn_hash}.`);
+        if (req.is_vesting === true) {
+            messages.push(getVestingMessageForMigrated(req));
+        }
+        if (req.is_vesting === false) {
+            const [initial,] = getTokenSplit(req, false);
+            messages.push(`You have been given ${initial}.`);
+        }
+    }
+
+    if (req.status === REQ_STATUS.BONUS_TRANSFERRED) {
+        messages.push('Your request has been processed successfully and your tokens along with bonus have been transferred to your mainnet address.');
+        messages.push(`The initial tokens were given in block 0x${req.migration_txn_hash}.`);
+        if (req.is_vesting !== null) {
+            messages.push(`Your bonus has been transferred in block 0x${req.bonus_txn_hash}.`);
+        }
+        if (req.is_vesting === true) {
+            messages.push(`You have been given a swap bonus of ${formatBal(req.swap_bonus_tokens)} and ${formatBal(req.vesting_bonus_tokens)} of your balance is vesting.`);
+        }
+        if (req.is_vesting === false) {
+            messages.push(`You have been given a swap bonus of ${formatBal(req.swap_bonus_tokens)}`);
+        }
+    }
+
+    details['messages'] = messages;
+    return details;
 }
 
 /**

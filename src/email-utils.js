@@ -46,10 +46,22 @@ export function shouldRingAlarm(allowedMigrations, balanceAsBn) {
 }
 
 /**
+ * Send mail as some of the requests that should have been migrated were not migrated. This can happen due to migrator's insufficient balance or cap on free transfers
+ * @returns {Promise<void>}
+ */
+export async function sendLargeReqAlarmEmail() {
+    return sendAlarmEmail('Encountered migration request(s) with large balance', 'Migrator is probably low on balance as there are some valid requests that cannot be migrated');
+}
+
+/**
  * Send mail alarming that migrator should be refuelled
  * @returns {Promise<SESV2.SendEmailResponse & {$response: Response<SESV2.SendEmailResponse, AWSError>}>}
  */
 export async function sendMigratorAlarmEmail() {
+    return sendAlarmEmail('Migrator running low', 'Migrator is either low on balance or allowed migrations');
+}
+
+async function sendAlarmEmail(subject, body) {
     const ses = new SESV2({
         apiVersion: '2019-09-27',
         accessKeyId: process.env.AWS_ACCESS_ID,
@@ -67,12 +79,12 @@ export async function sendMigratorAlarmEmail() {
             Simple: {
                 Body: {
                     Text: {
-                        Data: 'Migrator is either low on balance or allowed migrations',
+                        Data: body,
                         Charset: 'UTF-8'
                     }
                 },
                 Subject: {
-                    Data: 'Migrator running low',
+                    Data: subject,
                     Charset: 'UTF-8'
                 }
             }

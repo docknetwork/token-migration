@@ -11,7 +11,7 @@ import {getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './et
 import {REQ_STATUS} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
 import BN from 'bn.js';
-import {alarmMigratorIfNeeded} from "./email-utils";
+import {alarmMigratorIfNeeded, sendLargeReqAlarmEmail} from "./email-utils";
 import {logBadTxn, logMigrationWarning} from './log';
 import {formatBalance} from '@polkadot/util';
 
@@ -138,6 +138,7 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
 
     if (selected < confirmed.length) {
         logMigrationWarning(`${confirmed.length - selected} confirmed requests could not be migrated`);
+        await sendLargeReqAlarmEmail();
     }
 
     // Do the migration. Migration is atomic, either all reqs are migrated or none.

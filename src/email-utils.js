@@ -61,6 +61,10 @@ export async function sendMigratorAlarmEmail() {
     return sendAlarmEmail('Migrator running low', 'Migrator is either low on balance or allowed migrations');
 }
 
+export async function sendMigrationFailEmail() {
+    return sendAlarmEmail('Migration attempted but failed', 'Migrate transaction was sent but it failed');
+}
+
 async function sendAlarmEmail(subject, body) {
     const ses = new SESV2({
         apiVersion: '2019-09-27',

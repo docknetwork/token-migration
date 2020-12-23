@@ -11,9 +11,12 @@ import {getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './et
 import {REQ_STATUS} from "./constants";
 import {addPrefixToHex, removePrefixFromHex} from "./util";
 import BN from 'bn.js';
-import {alarmMigratorIfNeeded, sendLargeReqAlarmEmail} from "./email-utils";
+import {alarmMigratorIfNeeded, sendLargeReqAlarmEmail, sendMigrationFailEmail} from "./email-utils";
 import {logBadTxn, logMigrationWarning} from './log';
 import {formatBalance} from '@polkadot/util';
+
+
+const ERC20Factor = new BN('1000000000000');
 
 /**
  * Takes ERC-20 amount (as smallest unit) as a string and return mainnet amount as BN
@@ -24,7 +27,7 @@ export function fromERC20ToDockTokens(amountInERC20) {
     const ercBN = new BN(amountInERC20);
     // Dock mainnet has 6 decimal places, ERC-20 has 18
     // Note: Loses some precision in case of less than 12 "0" least significant digits
-    return ercBN.div(new BN('1000000000000'))
+    return ercBN.div(ERC20Factor)
 }
 
 /**
@@ -218,6 +221,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
             await updateMigratedRequestsInDb(dbClient, blockHash, migrated);
         } catch (e) {
             logMigrationWarning(`Migration attempt of confirmed requests failed with error ${e}`);
+            await sendMigrationFailEmail();
         }
     }
 
@@ -252,7 +256,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
                 confirmedReqs.push(req);
                 dbWritesForUnMigratedReqs.push(markRequestParsedAndConfirmed(dbClient, req.eth_address, req.eth_txn_hash, txn.value, txn.blockNumber));
             } else {
-                dbWritesForUnMigratedReqs.push(markRequestParsed(dbClient, req.eth_address, req.eth_txn_hash, txn.value))
+                dbWritesForUnMigratedReqs.push(markRequestParsed(dbClient, req.eth_address, req.eth_txn_hash, txn.value));
             }
         } else {
             logBadTxn('Transaction was either not found, or was rejected by the network or was not a token transfer to the Vault', req.eth_address, txns[index]);
@@ -288,6 +292,7 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
             await updateMigratedRequestsInDb(dbClient, blockHash, migrated);
         } catch (e) {
             logMigrationWarning(`Migration attempt of confirmed requests failed with error ${e}`);
+            await sendMigrationFailEmail();
         }
     }
 }

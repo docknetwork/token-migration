@@ -95,6 +95,112 @@ describe('Validate migration request payload', () => {
     });
   });
 
+  test('sign and verify message from MyCrypto', () => {
+    [
+      ['d25DJj7azNUJXfEbYLpr5PUjuYydDE51c1EvaLKsgCq83Gs6QHYjwtRp4PirP8DadNfWNwc5bahGQ8mmceoTnLejFMcWtgtWz8', '0x1094926cfb4d83fc7814f0547be3214a6d01ab32f5af242b9521fe9d1a00789e6a389dd1461a927c6242da48e1b5a359ff4510f5b74705658555ffba5ad263b71b', '8c854bc1b6b1122d27c6489c57dfc53e56a94910'],
+      ['d25DJj7azNUJXfEbYLpr5PUjuYydDE51c1EvaLKsgCq83Gs4AehvNnABQQ1GENtoh8f4TWyBWJBHT5cH9xwJFvkMaJoR6tgsvq', '0x07fe6f31411bad6c2ea3bd4066db5519a09790067cb8dbb875e63f571f4a46ed7747151280fd4bc949564874b0a9e2db28cedd93558c814ff86bb9012322ba4d1c', '1a3432b0a5c5c46ec55e7e58fe47f2a1d5aa1b9b'],
+      ['dfcHMaJJFe3ib5P9C2AjtruCMFCcJZsxW2sttLC1HnC2StsdcrMHAyd4og98b3UfsdxCCkx2kS57kRW5KJa1uJiHW4Xwaa2ZNq', '0xc3ef4f30caab576686b82dbb32e6c14a0aeeb8f8dbc300057552b32fe1dc4fde7edb32a26c8f9b581e28bd91c41ac38e9fbb0c095d976bd48fa02a259483ba2f1b', '1a3432b0a5c5c46ec55e7e58fe47f2a1d5aa1b9b']
+    ].forEach(([msg, sig, expectedAddr]) => {
+      const addr = getAddressesFromPayloadSig(msg, toBuffer(sig));
+      expect(addr).toBe(expectedAddr);
+    });
+  })
+
+  test('API response', () => {
+    const details1 = prepareReqStatusForApiResp({status: REQ_STATUS.INVALID_BLACKLIST});
+    expect(details1.status).toBe(REQ_STATUS.INVALID_BLACKLIST);
+    expect(details1.messages.length).toBe(1);
+    expect(details1.messages[0].startsWith('Migration request has been received but the sender address is blacklisted')).toBe(true);
+    expect(details1.messages[0].includes(MIGRATION_SUPPORT_MSG)).toBe(true);
+
+    const details2 = prepareReqStatusForApiResp({status: REQ_STATUS.INVALID});
+    expect(details2.status).toBe(REQ_STATUS.INVALID);
+    expect(details2.messages.length).toBe(1);
+    expect(details2.messages[0].startsWith('Migration request has been received but the request is invalid.')).toBe(true);
+    expect(details2.messages[0].includes(MIGRATION_SUPPORT_MSG)).toBe(true);
+
+    const details3 = prepareReqStatusForApiResp({status: REQ_STATUS.SIG_VALID, mainnet_address: 'xyz'});
+    expect(details3.status).toBe(REQ_STATUS.SIG_VALID);
+    expect(details3.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
+    expect(details3.messages[1]).toBe('Your request has been received. Waiting for sufficient confirmations to begin the migration. You should check back in a few minutes.');
+
+    const details4 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_PARSED, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000'});
+    const [i1, l1] = getTokenSplit({erc20: '9194775499990000000000'}, true);
+    expect(details4.status).toBe(REQ_STATUS.TXN_PARSED);
+    expect(details4.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
+    expect(details4.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
+    expect(details4.messages[1]).toBe('Your request has been received and successfully parsed. It will be migrated soon and you should check back in a few minutes.');
+    expect(details4.messages[2]).toBe(`You will receive ${i1} soon and the remaining ${l1} will be given along with a bonus as part of vesting.`);
+
+    const details5 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_PARSED, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000'});
+    const [i3, ] = getTokenSplit({erc20: '9194775499990000000000'}, false);
+    expect(details5.status).toBe(REQ_STATUS.TXN_PARSED);
+    expect(details5.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
+    expect(details5.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
+    expect(details5.messages[1]).toBe('Your request has been received and successfully parsed. It will be migrated soon and you should check back in a few minutes.');
+    expect(details5.messages[2]).toBe(`You will receive ${i3} soon.`);
+
+    const details6 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_CONFIRMED, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000'});
+    const [i4, l4] = getTokenSplit({erc20: '9194775499990000000000'}, true);
+    expect(details6.status).toBe(REQ_STATUS.TXN_CONFIRMED);
+    expect(details6.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
+    expect(details6.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
+    expect(details6.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It will be migrated soon and you should check back in a few minutes.');
+    expect(details6.messages[2]).toBe(`You will receive ${i4} soon and the remaining ${l4} will be given along with a bonus as part of vesting.`);
+
+    const details7 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_CONFIRMED, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000'});
+    let [i5, ] = getTokenSplit({erc20: '9194775499990000000000'}, false);
+    expect(details7.status).toBe(REQ_STATUS.TXN_CONFIRMED);
+    expect(details7.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
+    expect(details7.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
+    expect(details7.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It will be migrated soon and you should check back in a few minutes.');
+    expect(details7.messages[2]).toBe(`You will receive ${i5} soon.`);
+
+    const details8 = prepareReqStatusForApiResp({status: REQ_STATUS.INITIAL_TRANSFER_DONE, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000', migration_txn_hash: 'abc'});
+    const [i6, l6] = getTokenSplit({erc20: '9194775499990000000000'}, true);
+    expect(details8.status).toBe(REQ_STATUS.INITIAL_TRANSFER_DONE);
+    expect(details8.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
+    expect(details8.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
+    expect(details8.messages[1]).toBe('Your request has been processed successfully and tokens have been sent to your mainnet address in block 0xabc.');
+    expect(details8.messages[2]).toBe(`You have been given ${i6} and the remaining ${l6} will be given along with a bonus as part of vesting.`);
+
+    const details9 = prepareReqStatusForApiResp({status: REQ_STATUS.INITIAL_TRANSFER_DONE, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000', migration_txn_hash: 'abc'});
+    let [i7, ] = getTokenSplit({erc20: '9194775499990000000000'}, false);
+    expect(details9.status).toBe(REQ_STATUS.INITIAL_TRANSFER_DONE);
+    expect(details9.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
+    expect(details9.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
+    expect(details9.messages[1]).toBe('Your request has been processed successfully and tokens have been sent to your mainnet address in block 0xabc.');
+    expect(details9.messages[2]).toBe(`You have been given ${i7}.`);
+  });
+
+  test('API server works', async () => {
+    const server = getServer();
+    // XXX: This logix is tightly coupled with logging and database.
+    const dbClient = await setupDbForServer(server);
+    setupLogglyForAPI();
+    const testingServer = supertest(server);
+    const addr = address.toString('hex');
+    const txH = '5e618464858638cb8b4df51db776c7293d138b170103a999644de87aa93d138a';
+
+    [1, 0].forEach( async (v) => {
+      const [payloadCheck, sig] = genTestPayloadAndSig(v);
+
+      const response1 = await testingServer.post('/migrate_with_bonus').set('Accept', 'application/json').send({payload: payloadCheck, signature: bs58.encode(sig)});
+      expect(response1.status).toBe(200);
+
+      const response2 = await testingServer.post('/status').set('Accept', 'application/json').send({address: addr, txnHash: txH});
+      expect(response2.status).toBe(200);
+
+      const response3 = await testingServer.get('/statistics').set('Accept', 'application/json').auth(process.env.STATS_ADMIN_NAME, process.env.STATS_ADMIN_KEY);
+      expect(response3.status).toBe(200);
+
+      await removeMigrationReq(dbClient, addr, '5e618464858638cb8b4df51db776c7293d138b170103a999644de87aa93d138a');
+    });
+
+    await dbClient.stop();
+
+  }, 20000)
+
   describe('Request window', () => {
     // Will hold original values of env variables changed during test as they need to be restored after tests are done
     let bReal, mReal;
@@ -127,112 +233,6 @@ describe('Validate migration request payload', () => {
       process.env.MIGRATION_ENDS_AT = (now - 10000).toString();
       expect(() => checkReqWindow(false)).toThrow('Migration is over');
     });
-
-    test('sign and verify message from MyCrypto', () => {
-      [
-          ['d25DJj7azNUJXfEbYLpr5PUjuYydDE51c1EvaLKsgCq83Gs6QHYjwtRp4PirP8DadNfWNwc5bahGQ8mmceoTnLejFMcWtgtWz8', '0x1094926cfb4d83fc7814f0547be3214a6d01ab32f5af242b9521fe9d1a00789e6a389dd1461a927c6242da48e1b5a359ff4510f5b74705658555ffba5ad263b71b', '8c854bc1b6b1122d27c6489c57dfc53e56a94910'],
-          ['d25DJj7azNUJXfEbYLpr5PUjuYydDE51c1EvaLKsgCq83Gs4AehvNnABQQ1GENtoh8f4TWyBWJBHT5cH9xwJFvkMaJoR6tgsvq', '0x07fe6f31411bad6c2ea3bd4066db5519a09790067cb8dbb875e63f571f4a46ed7747151280fd4bc949564874b0a9e2db28cedd93558c814ff86bb9012322ba4d1c', '1a3432b0a5c5c46ec55e7e58fe47f2a1d5aa1b9b'],
-          ['dfcHMaJJFe3ib5P9C2AjtruCMFCcJZsxW2sttLC1HnC2StsdcrMHAyd4og98b3UfsdxCCkx2kS57kRW5KJa1uJiHW4Xwaa2ZNq', '0xc3ef4f30caab576686b82dbb32e6c14a0aeeb8f8dbc300057552b32fe1dc4fde7edb32a26c8f9b581e28bd91c41ac38e9fbb0c095d976bd48fa02a259483ba2f1b', '1a3432b0a5c5c46ec55e7e58fe47f2a1d5aa1b9b']
-      ].forEach(([msg, sig, expectedAddr]) => {
-        const addr = getAddressesFromPayloadSig(msg, toBuffer(sig));
-        expect(addr).toBe(expectedAddr);
-      });
-    })
-
-    test('API response', () => {
-      const details1 = prepareReqStatusForApiResp({status: REQ_STATUS.INVALID_BLACKLIST});
-      expect(details1.status).toBe(REQ_STATUS.INVALID_BLACKLIST);
-      expect(details1.messages.length).toBe(1);
-      expect(details1.messages[0].startsWith('Migration request has been received but the sender address is blacklisted')).toBe(true);
-      expect(details1.messages[0].includes(MIGRATION_SUPPORT_MSG)).toBe(true);
-
-      const details2 = prepareReqStatusForApiResp({status: REQ_STATUS.INVALID});
-      expect(details2.status).toBe(REQ_STATUS.INVALID);
-      expect(details2.messages.length).toBe(1);
-      expect(details2.messages[0].startsWith('Migration request has been received but the request is invalid.')).toBe(true);
-      expect(details2.messages[0].includes(MIGRATION_SUPPORT_MSG)).toBe(true);
-
-      const details3 = prepareReqStatusForApiResp({status: REQ_STATUS.SIG_VALID, mainnet_address: 'xyz'});
-      expect(details3.status).toBe(REQ_STATUS.SIG_VALID);
-      expect(details3.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
-      expect(details3.messages[1]).toBe('Your request has been received. Waiting for sufficient confirmations to begin the migration. You should check back in a few minutes.');
-
-      const details4 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_PARSED, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000'});
-      const [i1, l1] = getTokenSplit({erc20: '9194775499990000000000'}, true);
-      expect(details4.status).toBe(REQ_STATUS.TXN_PARSED);
-      expect(details4.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
-      expect(details4.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
-      expect(details4.messages[1]).toBe('Your request has been received and successfully parsed. It will be migrated soon and you should check back in a few minutes.');
-      expect(details4.messages[2]).toBe(`You will receive ${i1} soon and the remaining ${l1} will be given along with a bonus as part of vesting.`);
-
-      const details5 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_PARSED, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000'});
-      const [i3, ] = getTokenSplit({erc20: '9194775499990000000000'}, false);
-      expect(details5.status).toBe(REQ_STATUS.TXN_PARSED);
-      expect(details5.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
-      expect(details5.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
-      expect(details5.messages[1]).toBe('Your request has been received and successfully parsed. It will be migrated soon and you should check back in a few minutes.');
-      expect(details5.messages[2]).toBe(`You will receive ${i3} soon.`);
-
-      const details6 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_CONFIRMED, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000'});
-      const [i4, l4] = getTokenSplit({erc20: '9194775499990000000000'}, true);
-      expect(details6.status).toBe(REQ_STATUS.TXN_CONFIRMED);
-      expect(details6.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
-      expect(details6.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
-      expect(details6.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It will be migrated soon and you should check back in a few minutes.');
-      expect(details6.messages[2]).toBe(`You will receive ${i4} soon and the remaining ${l4} will be given along with a bonus as part of vesting.`);
-
-      const details7 = prepareReqStatusForApiResp({status: REQ_STATUS.TXN_CONFIRMED, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000'});
-      let [i5, ] = getTokenSplit({erc20: '9194775499990000000000'}, false);
-      expect(details7.status).toBe(REQ_STATUS.TXN_CONFIRMED);
-      expect(details7.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
-      expect(details7.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
-      expect(details7.messages[1]).toBe('Your request has been received and has had sufficient confirmations. It will be migrated soon and you should check back in a few minutes.');
-      expect(details7.messages[2]).toBe(`You will receive ${i5} soon.`);
-
-      const details8 = prepareReqStatusForApiResp({status: REQ_STATUS.INITIAL_TRANSFER_DONE, mainnet_address: 'xyz', is_vesting: true, erc20: '9194775499990000000000', migration_txn_hash: 'abc'});
-      const [i6, l6] = getTokenSplit({erc20: '9194775499990000000000'}, true);
-      expect(details8.status).toBe(REQ_STATUS.INITIAL_TRANSFER_DONE);
-      expect(details8.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
-      expect(details8.messages[0].endsWith('have opted for vesting bonus.')).toBe(true);
-      expect(details8.messages[1]).toBe('Your request has been processed successfully and tokens have been sent to your mainnet address in block 0xabc.');
-      expect(details8.messages[2]).toBe(`You have been given ${i6} and the remaining ${l6} will be given along with a bonus as part of vesting.`);
-
-      const details9 = prepareReqStatusForApiResp({status: REQ_STATUS.INITIAL_TRANSFER_DONE, mainnet_address: 'xyz', is_vesting: false, erc20: '9194775499990000000000', migration_txn_hash: 'abc'});
-      let [i7, ] = getTokenSplit({erc20: '9194775499990000000000'}, false);
-      expect(details9.status).toBe(REQ_STATUS.INITIAL_TRANSFER_DONE);
-      expect(details9.messages[0].startsWith('You have requested migration for the mainnet address xyz')).toBe(true);
-      expect(details9.messages[0].endsWith('have not opted for vesting bonus.')).toBe(true);
-      expect(details9.messages[1]).toBe('Your request has been processed successfully and tokens have been sent to your mainnet address in block 0xabc.');
-      expect(details9.messages[2]).toBe(`You have been given ${i7}.`);
-    });
-
-    test('API server works', async () => {
-      const server = getServer();
-      // XXX: This logix is tightly coupled with logging and database.
-      const dbClient = await setupDbForServer(server);
-      setupLogglyForAPI();
-      const testingServer = supertest(server);
-      const addr = address.toString('hex');
-      const txH = '5e618464858638cb8b4df51db776c7293d138b170103a999644de87aa93d138a';
-
-      [1, 0].forEach( async (v) => {
-        const [payloadCheck, sig] = genTestPayloadAndSig(v);
-
-        const response1 = await testingServer.post('/migrate_with_bonus').set('Accept', 'application/json').send({payload: payloadCheck, signature: bs58.encode(sig)});
-        expect(response1.status).toBe(200);
-
-        const response2 = await testingServer.post('/status').set('Accept', 'application/json').send({address: addr, txnHash: txH});
-        expect(response2.status).toBe(200);
-
-        const response3 = await testingServer.get('/statistics').set('Accept', 'application/json').auth(process.env.STATS_ADMIN_NAME, process.env.STATS_ADMIN_KEY);
-        expect(response3.status).toBe(200);
-
-        await removeMigrationReq(dbClient, addr, '5e618464858638cb8b4df51db776c7293d138b170103a999644de87aa93d138a');
-      });
-
-      await dbClient.stop();
-
-    }, 20000)
 
     afterAll(() => {
       process.env.BONUS_ENDS_AT = bReal;

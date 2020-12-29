@@ -20,10 +20,10 @@ ETH_TXN_CONFIRMATION_BLOCKS = 40
 # Block time of Ethereum in seconds, taken from https://etherscan.io/chart/blocktime. The code assumes this will remain same during migration period.
 ETH_BLOCK_TIME = 13
 # Ethereum block number from where migration starts. Dummy value for now, real value will be set once migration date is finalized.
-MIGRATION_START_BLOCK_NO = 100
-# Timestamp in ms when bonus ends. Current time + 4 weeks.
-BONUS_ENDS_AT = 1610064000000
-# Timestamp in ms when migration ends. Current time + 3 months.
+MIGRATION_START_BLOCK_NO = 11412920
+# Timestamp in ms when bonus ends. 
+BONUS_ENDS_AT = 1610409600000
+# Timestamp in ms when migration ends. 
 MIGRATION_ENDS_AT = 1615161600000
 
 DB_ENDPOINT = <For connection to db>

@@ -66,29 +66,9 @@ async function getAllAccounts(dockClient) {
         return { ...obj, [addrStr]: { addr: addrStr, balance } }
     }, {})
 
-    // const dockAddr = asDockAddress(acc1[0]._args[0])
-    // console.log(asDockAddress(acc1[0]._args[0]), NETWORK)
-    // console.log(acc1[1].data.free.toNumber())
 
-    // accountsList.forEach((account, index) => {
-    //     console.log({ account })
-    //     console.log({ index })
-    // })
-    // let accountsMapped = accountsDoubleMap.reduce(async (mapProm, account) => {
-    //     const map = await mapProm
-    //     const addrBytes = account[0]._args[0];
-    //     const addr = asDockAddress(addrBytes);
-    //     const balance = await getAccountBalance(dockClient, addr);
-    //     return { ...map, [addr]: { addr, balance } }
-    // }, {})
-    // return accountsMapped
 }
 
-// async function getAccountBalance(dockClient, accAddr) {
-//     let { data: { free: previousFree }, nonce: previousNonce } = await dockClient.api.query.system.account(accAddr);
-//     // console.log(`${accAddr} has a balance of ${previousFree}, nonce ${previousNonce}`);
-//     return { free: previousFree, nonce: previousNonce }
-// }
 
 async function getDBRequests(db_client) {
     const sql = 'SELECT * FROM public.requests';

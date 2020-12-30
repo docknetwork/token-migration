@@ -65,10 +65,7 @@ async function getAllAccounts(dockClient) {
         const balance = accountInfo.data.free
         return { ...obj, [addrStr]: { addr: addrStr, balance } }
     }, {})
-
-
 }
-
 
 async function getDBRequests(db_client) {
     const sql = 'SELECT * FROM public.requests';

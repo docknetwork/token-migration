@@ -24,59 +24,76 @@ console.log({ DB_name: process.env.DB_NAME, NETWORK, DOCKNET_ADDR });
 async function main() {
     const dockClient = new DockAPI();
     await dockClient.init({ address: DOCKNET_ADDR });
-    const allAccounts = await getAllAccounts(dockClient);
+    const chainAccounts = await fetchChainAccounts(dockClient);
+    // console.log({ chainAccounts })
 
 
-    const db_client = new DBClient();
-    await db_client.start();
-    const dbRequests = await getDBRequests(db_client);
+    const dbClient = new DBClient();
+    await dbClient.start();
+    const dbTotals = await loadDbTotals(dbClient);
 
+    const specialAccounts = await fetchSpecialAccounts(dockClient);
+    console.log({ specialAccounts })
+
+    await dbClient.stop();
+    await dockClient.disconnect();
+}
+main()
+
+async function fetchChainAccounts(dockClient) {
+    const accounts = await dockClient.api.query.system.account.entries();
+    // reduce because we want to index results by addr
+    return accounts.reduce((obj, [accountId, accountInfo]) => {
+        const addrBytes = accountId._args[0]
+        const addrStr = asDockAddress(addrBytes, NETWORK)
+        const balance = BigInt(accountInfo.data.free.toString())
+        return { ...obj, [addrStr]: balance }
+    }, {})
+}
+
+async function loadDbTotals(dbClient) {
+    const sql = "SELECT mainnet_address, SUM(CAST(coalesce(migration_tokens, '0') AS bigint)) AS db_total FROM requests GROUP BY mainnet_address"
+    const values = [];
+
+    let res;
+    try {
+        res = await dbClient.query(sql, values)
+    } catch (e) {
+        console.error(`ERROR: message: ${e.message}, detail: ${e.detail}`)
+    }
+
+    return res.rows.map(row => ({ ...row, db_total: BigInt(row.db_total) }))
+}
+
+function findMismatchedBalances(chainAccounts, dbTotals) {
     // reduce because number of outputs != number of inputs. Not all return results
-    const mismatched_accounts = dbRequests.reduce((obj, req) => {
-        const dockAddr = req.mainnet_address;
-        const db_migration_tokens = req.migration_tokens;
-        const onchain_account = allAccounts[dockAddr];
+    const mismatchedBalances = dbTotals.reduce((resMap, mtot) => {
+        const dockAddr = mtot.mainnet_address;
+        const dbTotal = mtot.db_total;
+        const onchain_account = chainAccounts[dockAddr];
         // console.log({ dockAddr, onchain_account })
-        if (!onchain_account) { return obj }
-        const onchain_tokens = onchain_account.balance.toNumber();
+
+        if (!onchain_account) { return resMap }
+        const onchain_tokens = onchain_account.balance;
 
         // console.log({ db_migration_tokens, onchain_tokens })
 
         // if match don't include in results
         if (db_migration_tokens == onchain_tokens) {
-            return obj
+            return resMap
         }
         // else include in results
-        return { ...obj, [dockAddr]: { dockAddr, db_migration_tokens, onchain_tokens } }
+        return { ...resMap, [dockAddr]: { db_total, onchain_tokens } }
     }, {});
-    console.log({ mismatched_accounts })
-
-    await db_client.stop();
-    await dockClient.disconnect();
-}
-main()
-
-async function getAllAccounts(dockClient) {
-    const accounts = await dockClient.api.query.system.account.entries();
-    // use reduce because we want the result as an indexed map rather than an array
-    return accounts.reduce((obj, [accountId, accountInfo]) => {
-        const addrBytes = accountId._args[0]
-        const addrStr = asDockAddress(addrBytes, NETWORK)
-        const balance = accountInfo.data.free
-        return { ...obj, [addrStr]: { addr: addrStr, balance } }
-    }, {})
+    return mismatchedBalances
 }
 
-async function getDBRequests(db_client) {
-    const sql = 'SELECT * FROM public.requests';
-    const values = [];
-
-    let res;
-    try {
-        res = await db_client.query(sql, values)
-    } catch (e) {
-        console.error(`ERROR: message: ${e.message}, detail: ${e.detail}`)
-    }
-
-    return res.rows
+async function fetchSpecialAccounts(dockClient) {
+    const validatorAccountIds = await dockClient.api.query.poAModule.activeValidators();
+    const validatorAddrs = validatorAccountIds.map((val) => {
+        const addrStr = asDockAddress(val, NETWORK)
+        return addrStr
+    })
+    // TODO sudo
+    return validatorAddrs
 }

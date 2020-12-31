@@ -18,22 +18,28 @@ const DOCKNET_ADDR = (() => {
     }
     return _ADDRS[NETWORK] || _ADDRS['test']
 })();
-console.log({ DB_name: process.env.DB_NAME, NETWORK, DOCKNET_ADDR });
+const SUDO = (() => {
+    const _SUDO_ADDRS = {
+        'test': '5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH',
+        'main': '3HqoTXW3HBQJoFpvRaAaJoNsWTBZs3CuGRqT9xxfv497k8fs'
+    }
+    return _SUDO_ADDRS[NETWORK] || _SUDO_ADDRS['test']
+})();
 
 
 async function main() {
     const dockClient = new DockAPI();
     await dockClient.init({ address: DOCKNET_ADDR });
     const chainAccounts = await fetchChainAccounts(dockClient);
-    // console.log({ chainAccounts })
-
 
     const dbClient = new DBClient();
     await dbClient.start();
     const dbTotals = await loadDbTotals(dbClient);
 
     const specialAccounts = await fetchSpecialAccounts(dockClient);
-    console.log({ specialAccounts })
+
+    const mismatchedBalances = findMismatchedBalances(chainAccounts, dbTotals, specialAccounts);
+    console.log({ mismatchedBalances })
 
     await dbClient.stop();
     await dockClient.disconnect();
@@ -65,18 +71,18 @@ async function loadDbTotals(dbClient) {
     return res.rows.map(row => ({ ...row, db_total: BigInt(row.db_total) }))
 }
 
-function findMismatchedBalances(chainAccounts, dbTotals) {
+function findMismatchedBalances(chainAccounts, dbTotals, specialAccounts) {
     // reduce because number of outputs != number of inputs. Not all return results
     const mismatchedBalances = dbTotals.reduce((resMap, mtot) => {
         const dockAddr = mtot.mainnet_address;
         const dbTotal = mtot.db_total;
         const onchain_account = chainAccounts[dockAddr];
-        // console.log({ dockAddr, onchain_account })
+
+        // filter special accounts
+        if (!specialAccounts[dockAddr]) { return resMap } // TODO no SUDO
 
         if (!onchain_account) { return resMap }
         const onchain_tokens = onchain_account.balance;
-
-        // console.log({ db_migration_tokens, onchain_tokens })
 
         // if match don't include in results
         if (db_migration_tokens == onchain_tokens) {
@@ -94,6 +100,6 @@ async function fetchSpecialAccounts(dockClient) {
         const addrStr = asDockAddress(val, NETWORK)
         return addrStr
     })
-    // TODO sudo
-    return validatorAddrs
+    const specialAccounts = validatorAddrs.concat(SUDO)
+    return specialAccounts
 }

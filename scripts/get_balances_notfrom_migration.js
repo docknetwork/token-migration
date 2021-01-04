@@ -2,31 +2,9 @@ const { DockAPI } = require("@docknetwork/sdk")
 const { asDockAddress } = require("@docknetwork/sdk/utils/codec.js")
 const { DBClient } = require("../src/db-utils")
 const { BN } = require("bn.js")
+
 require('dotenv').config();
-
-
-const NETWORK = (() => {
-    const _NETWORKS = {
-        'testing_migration': 'test',
-        'token-migration': 'main'
-    }
-    return _NETWORKS[process.env.DB_NAME] || 'test'
-})();
-const DOCKNET_ADDR = (() => {
-    const _ADDRS = {
-        'test': "wss://danforth-1.dock.io/",
-        'main': "wss://mainnet-node.dock.io/",
-    }
-    return _ADDRS[NETWORK] || _ADDRS['test']
-})();
-const SUDO = (() => {
-    const _SUDO_ADDRS = {
-        'test': '5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH',
-        'main': '3HqoTXW3HBQJoFpvRaAaJoNsWTBZs3CuGRqT9xxfv497k8fs'
-    }
-    return _SUDO_ADDRS[NETWORK] || _SUDO_ADDRS['test']
-})();
-
+const { NETWORK, DOCKNET_ADDR, SUDO_ADDR } = require("./common/consts.js")
 
 async function main() {
     const dockClient = new DockAPI();

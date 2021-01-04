@@ -1,13 +1,14 @@
 const { DockAPI } = require("@docknetwork/sdk")
 const { asDockAddress } = require("@docknetwork/sdk/utils/codec.js")
 const { DBClient } = require("../src/db-utils")
+const { BN } = require("bn.js")
 require('dotenv').config();
 
 
 const NETWORK = (() => {
     const _NETWORKS = {
         'testing_migration': 'test',
-        '___REPLACE_WITH_PROD_DBNAME': 'main' // REPLACE WITH PROD DB NAME
+        'token-migration': 'main'
     }
     return _NETWORKS[process.env.DB_NAME] || 'test'
 })();
@@ -52,7 +53,7 @@ async function fetchChainAccounts(dockClient) {
     return accounts.reduce((obj, [accountId, accountInfo]) => {
         const addrBytes = accountId._args[0]
         const addrStr = asDockAddress(addrBytes, NETWORK)
-        const balance = BigInt(accountInfo.data.free.toString())
+        const balance = accountInfo.data.free // type BN
         return { ...obj, [addrStr]: balance }
     }, {})
 }
@@ -68,7 +69,7 @@ async function loadDbTotals(dbClient) {
         console.error(`ERROR: message: ${e.message}, detail: ${e.detail}`)
     }
 
-    return res.rows.map(row => ({ ...row, db_total: BigInt(row.db_total) }))
+    return res.rows.map(row => ({ ...row, db_total: new BN(row.db_total) }))
 }
 
 function findMismatchedBalances(chainAccounts, dbTotals, specialAccounts) {

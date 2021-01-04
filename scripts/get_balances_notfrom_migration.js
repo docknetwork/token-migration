@@ -6,33 +6,44 @@ const { BN } = require("bn.js")
 require('dotenv').config();
 const { NETWORK, DOCKNET_ADDR, SUDO_ADDR } = require("./common/consts.js")
 
+const OTHER_SPECIAL_ACCOUNTS = (() => {
+    let specialAccs = new Set();
+    specialAccs.add(SUDO_ADDR);
+    return specialAccs
+})();
+
+
+
 async function main() {
     const dockClient = new DockAPI();
     await dockClient.init({ address: DOCKNET_ADDR });
-    const chainAccounts = await fetchChainAccounts(dockClient);
+    const specialAccounts = await fetchSpecialAccounts(dockClient);
+    const chainAccounts = await fetchChainAccounts(dockClient, specialAccounts);
 
     const dbClient = new DBClient();
     await dbClient.start();
     const dbTotals = await loadDbTotals(dbClient);
 
-    const specialAccounts = await fetchSpecialAccounts(dockClient);
 
-    const mismatchedBalances = findMismatchedBalances(chainAccounts, dbTotals, specialAccounts);
-    console.log({ mismatchedBalances })
+    const mismatchedBalances = findMismatchedBalances(chainAccounts, dbTotals);
+    // console.log({ mismatchedBalances })
 
     await dbClient.stop();
     await dockClient.disconnect();
 }
 main()
 
-async function fetchChainAccounts(dockClient) {
+async function fetchChainAccounts(dockClient, specialAccounts) {
     const accounts = await dockClient.api.query.system.account.entries();
     // reduce because we want to index results by addr
-    return accounts.reduce((obj, [accountId, accountInfo]) => {
+    return accounts.reduce((indexed, [accountId, accountInfo]) => {
         const addrBytes = accountId._args[0]
         const addrStr = asDockAddress(addrBytes, NETWORK)
+
+        if (specialAccounts.has(addrStr)) { return indexed }
+
         const balance = accountInfo.data.free // type BN
-        return { ...obj, [addrStr]: balance }
+        return { ...indexed, [addrStr]: balance }
     }, {})
 }
 
@@ -50,15 +61,12 @@ async function loadDbTotals(dbClient) {
     return res.rows.map(row => ({ ...row, db_total: new BN(row.db_total) }))
 }
 
-function findMismatchedBalances(chainAccounts, dbTotals, specialAccounts) {
+function findMismatchedBalances(chainAccounts, dbTotals) {
     // reduce because number of outputs != number of inputs. Not all return results
     const mismatchedBalances = dbTotals.reduce((resMap, mtot) => {
         const dockAddr = mtot.mainnet_address;
         const dbTotal = mtot.db_total;
         const onchain_account = chainAccounts[dockAddr];
-
-        // filter special accounts
-        if (!specialAccounts[dockAddr]) { return resMap } // TODO no SUDO
 
         if (!onchain_account) { return resMap }
         const onchain_tokens = onchain_account.balance;
@@ -79,6 +87,9 @@ async function fetchSpecialAccounts(dockClient) {
         const addrStr = asDockAddress(val, NETWORK)
         return addrStr
     })
-    const specialAccounts = validatorAddrs.concat(SUDO)
+
+    let specialAccounts = new Set(validatorAddrs);
+    OTHER_SPECIAL_ACCOUNTS.forEach(ac => specialAccounts.add(ac))
+
     return specialAccounts
 }

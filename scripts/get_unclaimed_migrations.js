@@ -29,7 +29,7 @@ async function main() {
     const dbClient = new DBClient();
     await dbClient.start();
 
-    // const txs = await fetchEthERC20Txs()
+    const vaultTxs = await fetchEthERC20DockVaultTxs()
     // txs.map(tx => {
     //     // console.log({ tx })
     //     // console.log({ hash: tx.hash })
@@ -37,14 +37,15 @@ async function main() {
     // })
 
     const dbRequests = await loadDbRequests(dbClient);
-    console.log({ dbRequests })
+
+    const unclaimedMigrs = findUnclaimedMigrations(vaultTxs, dbRequests);
+    console.log({ unclaimedMigrs })
 
 
     await dbClient.stop();
 }
 main()
 
-// TODO rename
 async function fetchEthERC20DockVaultTxs() {
     let res;
     try {
@@ -75,4 +76,16 @@ async function loadDbRequests(dbClient) {
 
     // index rows and return
     return res.rows.reduce((indexed, row) => ({ ...indexed, [row.eth_txn_hash]: true }), {})
+}
+
+function findUnclaimedMigrations(vaultTxs, dbRequests) {
+    const res = vaultTxs.reduce((unclaimed, tx) => {
+        // if present in dbRequests, do not include in result
+        if (dbRequests[tx.hash]) {
+            return unclaimed
+        }
+        // else include in result
+        return { ...unclaimed, [tx.hash]: tx }
+    }, {})
+    return res
 }

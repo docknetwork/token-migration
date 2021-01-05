@@ -17,7 +17,6 @@ async function main() {
     const unclaimedMigrs = findUnclaimedMigrations(vaultTxs, dbRequests);
     console.log({ unclaimedMigrs, nb_unclaimed: Object.keys(unclaimedMigrs).length })
 
-
     await dbClient.stop();
 }
 main()
@@ -34,7 +33,7 @@ async function fetchVaultTxs(pageNo = 1) {
         const isFetchNextPage = results.length == 1000;
         if (isFetchNextPage) {
             // quick work-around for 5req/s rate-limiting: 1 sec delay every 5 requests
-            if (pageNo % 5 == 0) { await new Promise(resolve => setTimeout(resolve, 1100)); }
+            if (pageNo % 5 == 1) { await new Promise(resolve => setTimeout(resolve, 1100)); }
 
             let next_results = await fetchVaultTxs(pageNo + 1)
             results.push(...next_results)
@@ -48,28 +47,31 @@ async function fetchVaultTxs(pageNo = 1) {
 }
 
 async function loadDbRequests(dbClient) {
-    const sql = "SELECT eth_txn_hash FROM requests"
+    const sql = "SELECT eth_address, eth_txn_hash FROM requests WHERE status > -1" // status -1 is for invalid requests e.g. wrong signature
     const values = [];
 
-    let res;
     try {
-        res = await dbClient.query(sql, values)
+        const res = await dbClient.query(sql, values)
+        // index rows and return
+        return res.rows.reduce((indexed, row) => {
+            const db_id = `${row.eth_address};${row.eth_txn_hash}`
+            return { ...indexed, [db_id]: true }
+        }, {})
     } catch (e) {
         console.error(`ERROR: message: ${e.message}, detail: ${e.detail}`)
+        process.exit(1)
     }
-
-    // index rows and return
-    return res.rows.reduce((indexed, row) => ({ ...indexed, [row.eth_txn_hash]: true }), {})
 }
 
 function findUnclaimedMigrations(vaultTxs, dbRequests) {
-    const res = vaultTxs.reduce((unclaimed, tx) => {
+    const res = vaultTxs.reduce((unclaimed, vaultTx) => {
+        const tx_db_id = `${vaultTx.from};${vaultTx.hash}`
         // if present in dbRequests, do not include in result
-        if (dbRequests[tx.hash]) {
+        if (!!dbRequests[tx_db_id]) {
             return unclaimed
         }
         // else include in result
-        return { ...unclaimed, [tx.hash]: tx }
+        return { ...unclaimed, [tx_db_id]: vaultTx }
     }, {})
     return res
 }

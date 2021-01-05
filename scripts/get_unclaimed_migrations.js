@@ -1,4 +1,3 @@
-const { asDockAddress } = require("@docknetwork/sdk/utils/codec.js")
 const { DBClient } = require("../src/db-utils")
 const fetch = require('node-fetch');
 
@@ -12,11 +11,6 @@ async function main() {
     await dbClient.start();
 
     const vaultTxs = await fetchEthERC20DockVaultTxs()
-    // txs.map(tx => {
-    //     // console.log({ tx })
-    //     // console.log({ hash: tx.hash })
-    //     if (tx.hash == '0xc82d4b28e5b224d73efaf515e963d5c5eeeee831f88749cfcadbd1674c27836d') { console.log("FOUND !") }
-    // })
 
     const dbRequests = await loadDbRequests(dbClient);
 
@@ -34,11 +28,13 @@ async function fetchEthERC20DockVaultTxs() {
         res = await fetch(`https://api.etherscan.io/api?module=account&action=tokentx&contractaddress=${ERC20_CONTRACT}&address=${VAULT_ADDR}&page=1&offset=1000&sort=asc&apikey=${process.env.ETHERSCAN_API_KEY}`)
     } catch (e) {
         console.error(`failed fetching vault transactions`)
+        process.exit(1)
     }
 
     const parsed = await res.json();
     if (parsed.status != 1) {
         console.error(`failed fetching vault transactions.Response: ${JSON.stringify(parsed)}`)
+        process.exit(1)
     }
     const results = parsed.result || [];
     return results

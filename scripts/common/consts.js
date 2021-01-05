@@ -20,7 +20,5 @@ export const SUDO_ADDR = (() => {
     return _SUDO_ADDRS[NETWORK] || _SUDO_ADDRS['test']
 })();
 
-
-export const VAULT_ADDR = '0x0cf75f808479c9e7d61c78f65e997b605160b0aa';
-export const ERC20_CONTRACT = '0xe5dada80aa6477e85d09747f2842f7993d0df71c';
-// const VAULT_CREATION_HASH = '0xcc1ac05bcdcadeb50086f30e34b093dcfde6b156a9622b9faea83a3b73726b11';
+export const VAULT_ADDR = process.env.DOCK_ERC_20_VAULT_ADDR || '0x0cf75f808479c9e7d61c78f65e997b605160b0aa'; // eth-mainnet vault addr
+export const ERC20_CONTRACT = process.env.DOCK_ERC_20_ADDR || '0xe5dada80aa6477e85d09747f2842f7993d0df71c'; // eth-mainnet contract address

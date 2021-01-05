@@ -53,10 +53,11 @@ async function loadDbRequests(dbClient) {
     try {
         const res = await dbClient.query(sql, values)
         // index rows and return
-        return res.rows.reduce((indexed, row) => {
+        return res.rows.reduce((set, row) => {
             const db_id = `${row.eth_address};${row.eth_txn_hash}`
-            return { ...indexed, [db_id]: true }
-        }, {})
+            set.add(db_id)
+            return set
+        }, new Set())
     } catch (e) {
         console.error(`ERROR: message: ${e.message}, detail: ${e.detail}`)
         process.exit(1)
@@ -67,7 +68,7 @@ function findUnclaimedMigrations(vaultTxs, dbRequests) {
     const res = vaultTxs.reduce((unclaimed, vaultTx) => {
         const tx_db_id = `${vaultTx.from};${vaultTx.hash}`
         // if present in dbRequests, do not include in result
-        if (!!dbRequests[tx_db_id]) {
+        if (dbRequests.has(tx_db_id)) {
             return unclaimed
         }
         // else include in result

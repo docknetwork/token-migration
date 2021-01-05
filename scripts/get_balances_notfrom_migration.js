@@ -25,8 +25,9 @@ async function main() {
     const dbTotals = await loadDbTotals(dbClient);
 
 
+
     const mismatchedBalances = findMismatchedBalances(chainAccounts, dbTotals);
-    // console.log({ mismatchedBalances })
+    console.log(mismatchedBalances)
 
     await dbClient.stop();
     await dockClient.disconnect();
@@ -58,27 +59,45 @@ async function loadDbTotals(dbClient) {
         console.error(`ERROR: message: ${e.message}, detail: ${e.detail}`)
     }
 
-    return res.rows.map(row => ({ ...row, db_total: new BN(row.db_total) }))
+    return res.rows.reduce((indexed, row) => ({ ...indexed, [row.mainnet_address]: { db_total: new BN(row.db_total) } }), {})
 }
 
 function findMismatchedBalances(chainAccounts, dbTotals) {
-    // reduce because number of outputs != number of inputs. Not all return results
-    const mismatchedBalances = dbTotals.reduce((resMap, mtot) => {
-        const dockAddr = mtot.mainnet_address;
-        const dbTotal = mtot.db_total;
-        const onchain_account = chainAccounts[dockAddr];
+    // use reduce: because not each row gets mapped to a result
+    const dbMismatches = Object.entries(dbTotals).reduce(
+        ({ missing_chain_accounts, chain_accounts_with_balance_different_from_db }, [addr, { db_total }]) => {
+            const chain_account = chainAccounts[addr];
 
-        if (!onchain_account) { return resMap }
-        const onchain_tokens = onchain_account.balance;
+            // report accounts that don't exist on-chain yet
+            if (!chain_account) {
+                missing_chain_accounts = { ...missing_chain_accounts, [addr]: { db_total } }
+                return { missing_chain_accounts, chain_accounts_with_balance_different_from_db }
+            }
 
-        // if match don't include in results
-        if (db_migration_tokens == onchain_tokens) {
-            return resMap
+            // if balance match, don't include in results
+            const chain_balance = chain_account.balance;
+            if (db_total.eq(chain_balance)) {
+                return { missing_chain_accounts, chain_accounts_with_balance_different_from_db }
+            }
+            // else report balance mismatch
+            chain_accounts_with_balance_different_from_db = { ...chain_accounts_with_balance_different_from_db, [addr]: db_total, chain_balance }
+            return { missing_chain_accounts, chain_accounts_with_balance_different_from_db }
+        }, {})
+
+    // find chain accounts that were never given a balance
+    const chainMismatches = Object.entries(chainAccounts).reduce(({ chain_balances_not_from_migration }, [addr, chain_balance]) => {
+        const db_account = dbTotals[addr];
+
+        // report accounts missing from db
+        if (!db_account) {
+            chain_balances_not_from_migration = { ...chain_balances_not_from_migration, [addr]: { chain_balance } }
+            return { chain_balances_not_from_migration }
         }
-        // else include in results
-        return { ...resMap, [dockAddr]: { db_total, onchain_tokens } }
-    }, {});
-    return mismatchedBalances
+
+        return resMap
+    }, {})
+
+    return { ...dbMismatches, ...chainMismatches }
 }
 
 async function fetchSpecialAccounts(dockClient) {

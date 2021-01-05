@@ -10,34 +10,41 @@ async function main() {
     const dbClient = new DBClient();
     await dbClient.start();
 
-    const vaultTxs = await fetchEthERC20DockVaultTxs()
+    const vaultTxs = await fetchVaultTxs()
 
     const dbRequests = await loadDbRequests(dbClient);
 
     const unclaimedMigrs = findUnclaimedMigrations(vaultTxs, dbRequests);
-    console.log({ unclaimedMigrs })
+    console.log({ unclaimedMigrs, nb_unclaimed: Object.keys(unclaimedMigrs).length })
 
 
     await dbClient.stop();
 }
 main()
 
-async function fetchEthERC20DockVaultTxs() {
-    let res;
+async function fetchVaultTxs(pageNo = 1) {
     try {
-        res = await fetch(`https://api.etherscan.io/api?module=account&action=tokentx&contractaddress=${ERC20_CONTRACT}&address=${VAULT_ADDR}&page=1&offset=1000&sort=asc&apikey=${process.env.ETHERSCAN_API_KEY}`)
-    } catch (e) {
-        console.error(`failed fetching vault transactions`)
-        process.exit(1)
-    }
+        const res = await fetch(`https://api.etherscan.io/api?module=account&action=tokentx&contractaddress=${ERC20_CONTRACT}&address=${VAULT_ADDR}&page=${pageNo}&offset=1000&sort=asc&apikey=${process.env.ETHERSCAN_API_KEY}`)
+        const parsed = await res.json();
+        if (parsed.status != 1) {
+            throw new Error(`err response: ${JSON.stringify(parsed)}`)
+        }
+        let results = parsed.result || [];
 
-    const parsed = await res.json();
-    if (parsed.status != 1) {
-        console.error(`failed fetching vault transactions.Response: ${JSON.stringify(parsed)}`)
+        const isFetchNextPage = results.length == 1000;
+        if (isFetchNextPage) {
+            // quick work-around for 5req/s rate-limiting: 1 sec delay every 5 requests
+            if (pageNo % 5 == 0) { await new Promise(resolve => setTimeout(resolve, 1100)); }
+
+            let next_results = await fetchVaultTxs(pageNo + 1)
+            results.push(...next_results)
+        }
+
+        return results
+    } catch (e) {
+        console.error(`failed fetching vault transactions: ${e}`)
         process.exit(1)
     }
-    const results = parsed.result || [];
-    return results
 }
 
 async function loadDbRequests(dbClient) {

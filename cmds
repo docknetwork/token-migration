@@ -1,8 +1,8 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
-yarn_script() { deps 
-  yarn script scripts/get_unclaimed_migrations.js
+runscript() { deps 
+  yarn script "$@"
 }
 
 deps() {
@@ -10,15 +10,14 @@ deps() {
 }
 
 
-
 if declare -f "${1}" >/dev/null; then
   nix-shell --version || curl -L https://nixos.org/nix/install | sh; . ~/.nix-profile/etc/profile.d/nix.sh
-  PROGNAME=$(basename $0); sub="${1}"; shift
+  sub="${1}"; shift
   if echo ${shell} | grep nix; then
     "$sub" "$@" # invoke our named function w/ all remaining arguments
   else
     nix-shell --run "$(printf "%q " command "$0" "$sub" "$@")"
   fi
 else
-  echo "Subcommand '${1}' not recognized. Run './${PROGNAME} help' for docs." >&2; exit 1
+  PROGNAME=$(basename $0); echo "Subcommand '$1' not recognized. Run './${PROGNAME} help' for docs." >&2; exit 1
 fi

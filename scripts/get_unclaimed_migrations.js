@@ -59,7 +59,7 @@ async function loadDbRequests(dbClient) {
         const res = await dbClient.query(sql, values)
         // index rows and return
         return res.rows.reduce((set, row) => {
-            const db_id = `${row.eth_address};${row.eth_txn_hash}`
+            const db_id = `0x${row.eth_address};0x${row.eth_txn_hash}`
             set.add(db_id)
             return set
         }, new Set())
@@ -72,12 +72,15 @@ async function loadDbRequests(dbClient) {
 function findUnclaimedMigrations(vaultTxs, dbRequests) {
     const res = vaultTxs.reduce((unclaimed, vaultTx) => {
         const tx_db_id = `${vaultTx.from};${vaultTx.hash}`
+
         // if present in dbRequests, do not include in result
         if (dbRequests.has(tx_db_id)) {
             return unclaimed
         }
         // else include in result
-        return { ...unclaimed, [tx_db_id]: vaultTx }
+        const { blockNumber, timeStamp, hash, blockHash, from, to, value } = vaultTx
+        const txSummary = { blockNumber, timeStamp, hash, blockHash, from, to, value }
+        return { ...unclaimed, [tx_db_id]: { ...txSummary } }
     }, {})
     return res
 }

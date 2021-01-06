@@ -151,9 +151,9 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
     console.info(`Migrated ${recipients.length} requests in block ${blockHash}`);
 
     const migrated = [];
-    confirmed.slice(0, selected).forEach((req, index) => {
+    confirmed.slice(0, selected).forEach((req) => {
         const m = req;
-        m.mainnet_tokens = recipients[index][1];
+        m.mainnet_tokens = req.migration_tokens.toString();
         migrated.push(m);
     });
     return [blockHash, migrated, accum]

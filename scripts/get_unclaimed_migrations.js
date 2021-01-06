@@ -8,7 +8,12 @@ const { VAULT_ADDR, ERC20_CONTRACT } = require("./common/consts.js")
 
 async function main() {
     const dbClient = new DBClient();
-    await dbClient.start();
+    try {
+        await dbClient.start();
+    } catch (e) {
+        console.error(`failed connecting to the database: ${e}`)
+        process.exit(1)
+    }
 
     const vaultTxs = await fetchVaultTxs()
 

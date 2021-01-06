@@ -21,7 +21,12 @@ async function main() {
     const chainAccounts = await fetchChainAccounts(dockClient, specialAccounts);
 
     const dbClient = new DBClient();
-    await dbClient.start();
+    try {
+        await dbClient.start();
+    } catch (e) {
+        console.error(`failed connecting to the database: ${e}`)
+        process.exit(1)
+    }
     const dbTotals = await loadDbTotals(dbClient);
 
 

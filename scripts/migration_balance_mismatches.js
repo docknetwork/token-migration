@@ -49,7 +49,7 @@ async function fetchChainAccounts(dockClient, specialAccounts) {
         if (specialAccounts.has(addrStr)) { return indexed }
 
         const balance = accountInfo.data.free // type BN
-        return { ...indexed, [addrStr]: balance }
+        return { ...indexed, [addrStr]: { balance } }
     }, {})
 }
 
@@ -64,42 +64,47 @@ async function loadDbTotals(dbClient) {
         console.error(`ERROR: message: ${e.message}, detail: ${e.detail}`)
     }
 
-    return res.rows.reduce((indexed, row) => ({ ...indexed, [row.mainnet_address]: { db_total: new BN(row.db_total) } }), {})
+    return res.rows.reduce((indexed, row) => {
+        // don't include if balance is zero
+        if (row.db_total == 0) return indexed
+        // else include
+        return { ...indexed, [row.mainnet_address]: { db_total: new BN(row.db_total) } }
+    }, {})
 }
 
 function findMismatchedBalances(chainAccounts, dbTotals) {
     // use reduce: because not each row gets mapped to a result
     const dbMismatches = Object.entries(dbTotals).reduce(
-        ({ missing_chain_accounts, chain_accounts_with_balance_different_from_db }, [addr, { db_total }]) => {
+        ({ missing_chain_accounts, chain_accounts_with_balance_diff_from_db }, [addr, { db_total }]) => {
             const chain_account = chainAccounts[addr];
 
             // report accounts that don't exist on-chain yet
             if (!chain_account) {
-                missing_chain_accounts = { ...missing_chain_accounts, [addr]: { db_total } }
-                return { missing_chain_accounts, chain_accounts_with_balance_different_from_db }
+                missing_chain_accounts = { ...missing_chain_accounts, [addr]: `db_total: ${db_total.toString()}` }
+                return { missing_chain_accounts, chain_accounts_with_balance_diff_from_db }
             }
 
             // if balance match, don't include in results
             const chain_balance = chain_account.balance;
             if (db_total.eq(chain_balance)) {
-                return { missing_chain_accounts, chain_accounts_with_balance_different_from_db }
+                return { missing_chain_accounts, chain_accounts_with_balance_diff_from_db }
             }
             // else report balance mismatch
-            chain_accounts_with_balance_different_from_db = { ...chain_accounts_with_balance_different_from_db, [addr]: db_total, chain_balance }
-            return { missing_chain_accounts, chain_accounts_with_balance_different_from_db }
+            chain_accounts_with_balance_diff_from_db = { ...chain_accounts_with_balance_diff_from_db, [addr]: `db_total: ${db_total.toString()}, chain_balance: ${chain_balance.toString()}` }
+            return { missing_chain_accounts, chain_accounts_with_balance_diff_from_db }
         }, {})
 
     // find chain accounts that were never given a balance
-    const chainMismatches = Object.entries(chainAccounts).reduce(({ chain_balances_not_from_migration }, [addr, chain_balance]) => {
+    const chainMismatches = Object.entries(chainAccounts).reduce(({ chain_balances_not_from_migration }, [addr, { balance }]) => {
         const db_account = dbTotals[addr];
 
         // report accounts missing from db
         if (!db_account) {
-            chain_balances_not_from_migration = { ...chain_balances_not_from_migration, [addr]: { chain_balance } }
+            chain_balances_not_from_migration = { ...chain_balances_not_from_migration, [addr]: `chain_balance: ${balance.toString()}` }
             return { chain_balances_not_from_migration }
         }
 
-        return resMap
+        return { chain_balances_not_from_migration }
     }, {})
 
     return { ...dbMismatches, ...chainMismatches }

@@ -2,7 +2,7 @@ const { DBClient } = require("../src/db-utils")
 const fetch = require('node-fetch');
 
 require('dotenv').config();
-const { VAULT_ADDR, ERC20_CONTRACT } = require("./common/consts.js")
+const { get_VAULT_ADDR, get_ERC20_CONTRACT } = require("./common/consts.js")
 
 
 
@@ -28,7 +28,7 @@ main()
 
 async function fetchVaultTxs(pageNo = 1) {
     try {
-        const res = await fetch(`https://api.etherscan.io/api?module=account&action=tokentx&contractaddress=${ERC20_CONTRACT}&address=${VAULT_ADDR}&page=${pageNo}&offset=1000&sort=asc&apikey=${process.env.ETHERSCAN_API_KEY}`)
+        const res = await fetch(`https://api.etherscan.io/api?module=account&action=tokentx&contractaddress=${get_ERC20_CONTRACT()}&address=${get_VAULT_ADDR()}&page=${pageNo}&offset=1000&sort=asc&apikey=${process.env.ETHERSCAN_API_KEY}`)
         const parsed = await res.json();
         if (parsed.status != 1) {
             throw new Error(`err response: ${JSON.stringify(parsed)}`)

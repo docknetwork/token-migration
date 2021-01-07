@@ -136,6 +136,7 @@ export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMi
     }
 
     if (selected === 0) {
+        await sendLargeReqAlarmEmail();
         throw new Error('Could not migrate any request. This is either due to insufficient balance or cap on the allowed migration');
     }
 

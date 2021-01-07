@@ -80,10 +80,7 @@ export class DockNodeClient {
     }
 
     async getBonusFor(address) {
-        // TODO: After SDK PR is merged, uncomment the commented line and remove next
-        // return this.handle.migrationModule.getBonus(address);
-        const bonus = await this.handle.api.query.migrationModule.bonuses(address);
-        return this.handle.api.createType('Option<Bonus>', bonus).unwrapOr(this.handle.api.createType('Bonus'));
+        return this.handle.migrationModule.getBonus(address);
     }
 
     /**

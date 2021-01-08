@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "babel ./ --out-dir dist/ --ignore ./node_modules,./.babelrc,./package.json, --copy-files",
-    "start-dev": "nodemon ./src/index.js --exec babel-node --presets @babel/preset-env"
+    "start-dev": "nodemon ./src/index.js --exec babel-node --presets @babel/preset-env",
+    "script": "npx babel-node"
   },
   "dependencies": {
     "@docknetwork/sdk": "^0.3.15",
@@ -39,6 +40,7 @@
     "babel-jest": "24.5.0",
     "eslint": "^7.12.1",
     "jest": "^26.6.0",
+    "node-fetch": "^2.6.1",
     "nodemon": "^2.0.5",
     "supertest": "^6.0.1",
     "truffle": "^5.1.50"

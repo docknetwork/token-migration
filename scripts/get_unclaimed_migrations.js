@@ -20,7 +20,7 @@ async function main() {
     const dbRequests = await loadDbRequests(dbClient);
 
     const unclaimedMigrs = findUnclaimedMigrations(vaultTxs, dbRequests);
-    console.log({ unclaimedMigrs, nb_unclaimed: Object.keys(unclaimedMigrs).length })
+    console.log({ unclaimed_migrations: Object.values(unclaimedMigrs), nb_unclaimed: Object.keys(unclaimedMigrs).length })
 
     await dbClient.stop();
 }
@@ -79,7 +79,7 @@ function findUnclaimedMigrations(vaultTxs, dbRequests) {
         }
         // else include in result
         const { blockNumber, timeStamp, hash, blockHash, from, to, value } = vaultTx
-        const txSummary = { blockNumber, timeStamp, hash, blockHash, from, to, value }
+        const txSummary = { eth_blockNumber: blockNumber, timeStamp, vault_tx_hash: hash, eth_blockHash: blockHash, eth_from: from, eth_to: to, dock_amount: value }
         return { ...unclaimed, [tx_db_id]: { ...txSummary } }
     }, {})
     return res

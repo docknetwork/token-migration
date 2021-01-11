@@ -77,6 +77,10 @@ function findUnclaimedMigrations(vaultTxs, dbRequests) {
         if (dbRequests.has(tx_db_id)) {
             return unclaimed
         }
+        // if dock amount is zero, do not include
+        if (new Number(vaultTx.value) == 0) {
+            return unclaimed
+        }
         // else include in result
         const { blockNumber, timeStamp, hash, blockHash, from, to, value } = vaultTx
         const txSummary = { eth_blockNumber: blockNumber, timeStamp, vault_tx_hash: hash, eth_blockHash: blockHash, eth_from: from, eth_to: to, dock_amount: value }

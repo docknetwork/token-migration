@@ -323,7 +323,7 @@ describe('Bonus utils', () => {
         process.env.SWAP_BONUS_POOL = '100000000';
         process.env.VESTING_BONUS_POOL = '100000000';
         process.env.MIGRATION_START_BLOCK_NO = '10';
-        
+
         const mockedDbRequests = genTestData();
 
         // Trying with 10 tokens

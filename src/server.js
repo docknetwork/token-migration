@@ -4,7 +4,7 @@ import slowDown from 'express-slow-down';
 import basicAuth from 'express-basic-auth';
 import {logMigrationReq} from "./log";
 import {checkReqWindow, validateMigrationRequest, validateStatusRequest} from "./util";
-import {DBClient, getRequestFromDB, getStatsFromDB, trackNewRequest} from "./db-utils";
+import {DBClient, getRequestFromDB, getStatsFromDB, trackNewRequest, getInvalidRequests} from "./db-utils";
 import {MIGRATION_SUPPORT_MSG, REQ_STATUS} from "./constants";
 import {formatBal, getTokenSplit, getVestingMessageForMigrated, getVestingMessageForUnMigrated} from "./migrations";
 
@@ -181,6 +181,24 @@ export function prepareReqStatusForApiResp(req) {
     return details;
 }
 
+export async function onQueryInvalidReqs(req, res) {
+    try {
+        const dbClient = getDbClientFromServerReq(req);
+        const reqs = await getInvalidRequests(dbClient);
+        const invalids = reqs.map(r => `Transaction hash 0x${r.eth_txn_hash}. Appears to be signed from 0x${r.eth_address}`)
+        res.statusCode = 200;
+        res.json({
+            count: invalids.length,
+            invalids,
+        });
+    } catch (e) {
+        res.statusCode = 500;
+        res.json({
+            error: e.toString(),
+        });
+    }
+}
+
 /**
  * Prepare a new Express server and setup the routes
  * @returns {Express}
@@ -225,6 +243,8 @@ export function getServer() {
     users[process.env.STATS_ADMIN_NAME] = process.env.STATS_ADMIN_KEY;
     server.use('/statistics', basicAuth({users}));
     server.get('/statistics', onStatsRequest);
+    server.use('/invalids', basicAuth({users}));
+    server.get('/invalids', onQueryInvalidReqs);
 
     return server;
 }

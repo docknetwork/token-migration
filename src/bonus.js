@@ -29,7 +29,7 @@ void async function() {
             let processed;
             do {
                 // Process in batches of size 100
-                processed = await dispatchBonusesAndUpdateDB(dbClient, dockNodeClient, 100);
+                processed = await dispatchBonusesAndUpdateDB(dbClient, dockNodeClient, 10);
             }
             while (processed > 0);
             break;

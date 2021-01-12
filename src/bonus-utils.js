@@ -10,6 +10,7 @@ import {
 } from "./migrations";
 import BN from "bn.js";
 import {alarmMigratorIfNeeded} from "./email-utils";
+import {removePrefixFromHex} from "./util";
 
 require('dotenv').config();
 
@@ -188,9 +189,10 @@ export function prepareForBonusDisbursalReq(requests) {
  * @param {*} blockHash 
  */
 export async function updateDBPostBonusTrsfr(dbClient, requests, blockHash) {
+    const hash = removePrefixFromHex(blockHash);
     const dbReqPromises = [];
     requests.forEach((req) => {
-        dbReqPromises.push(updateAfterBonusTransfer(dbClient, req.eth_address, req.eth_txn_hash, blockHash));
+        dbReqPromises.push(updateAfterBonusTransfer(dbClient, req.eth_address, req.eth_txn_hash, hash));
     });
     await Promise.all(dbReqPromises);
 }

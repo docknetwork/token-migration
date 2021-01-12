@@ -120,12 +120,18 @@ CREATE INDEX "IsVesting" ON "public".requests USING hash (is_vesting) TABLESPACE
     ```
     select sum(cast(migration_tokens as decimal(30, 2))) / 1000000 as tokens from public.requests;
     ```
-- Bonus calculated
+- Total swap bonus
     ```
     select sum(cast(swap_bonus_tokens as decimal(30, 2))) / 1000000 as swap_bonus from public.requests;
-
-    select sum(cast(vesting_bonus_tokens as decimal(30, 2))) / 1000000 as vesting_bonus from public.requests;
     ```
+- Total vesting bonus
+  ```
+  select sum(cast(vesting_bonus_tokens as decimal(30, 2))) / 1000000 as vesting_bonus from public.requests;
+  ```
+- Vesting amount to be transferred
+  ```
+  select sum(cast(erc20 as decimal(30, 2))) / 1000000000000000000 as tokens from public.requests where is_vesting = true;
+  ```
 
 ## Testing
 For running integration tests using Truffle, transpile the code with Babel first using command below. That will put the 

@@ -1,7 +1,7 @@
 // Script to check details of a migration request. Expects the payload and signature (either hex or base58 encoded) that was submitted at the migration portal.
 // Can also be checked from the migration API logs. Can optionally accept whether the request was sent during bonus window or not.
 
-import {validateMigrationRequest} from "./util";
+import {validateMigrationRequest} from "../src/util";
 import bs58 from "bs58";
 
 void async function() {

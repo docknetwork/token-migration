@@ -1,9 +1,10 @@
 module.exports = {
+    "plugins": ["jest", "sonarjs"],
     "env": {
-        "browser": true,
+        "node": true,
         "es2021": true
     },
-    "extends": "eslint:recommended",
+    "extends": ["plugin:sonarjs/recommended", "eslint:recommended", "plugin:jest/recommended"],
     "parserOptions": {
         "ecmaVersion": 12,
         "sourceType": "module"

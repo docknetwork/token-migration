@@ -59,6 +59,7 @@ export function erc20ToInitialMigrationTokens(amountInERC20, isVesting) {
         // If vesting, take the floor after dividing by 2
         return dockTokens.shrn(1);
     } else {
+        // In case not vesting or bonus period over
         return dockTokens;
     }
 }
@@ -104,7 +105,8 @@ export function getVestingMessageForMigrated(req) {
 export async function migrateConfirmedRequests(dockNodeClient, dbReqs, allowedMigrations, balance) {
     // For reqs as confirmed txns, send migration request immediately
     const confirmed = dbReqs.map((r) => {
-        const n = r;
+        // Shallow copy is fine
+        const n =  {...r};
         // Calculate tokens to be given now, i.e. before bonus
         n.migration_tokens = erc20ToInitialMigrationTokens(n.erc20, n.is_vesting);
         return n;

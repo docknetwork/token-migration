@@ -115,6 +115,18 @@ CREATE INDEX Status ON "public".requests USING btree (status) TABLESPACE pg_defa
 CREATE INDEX "IsVesting" ON "public".requests USING hash (is_vesting) TABLESPACE pg_default;
 ```
 
+### Useful SQL commands
+- Migration tokens given excluding bonus
+    ```
+    select sum(cast(migration_tokens as decimal(30, 2))) / 1000000 as tokens from public.requests;
+    ```
+- Bonus calculated
+    ```
+    select sum(cast(swap_bonus_tokens as decimal(30, 2))) / 1000000 as swap_bonus from public.requests;
+
+    select sum(cast(vesting_bonus_tokens as decimal(30, 2))) / 1000000 as vesting_bonus from public.requests;
+    ```
+
 ## Testing
 For running integration tests using Truffle, transpile the code with Babel first using command below. That will put the 
 transpiled code into `build` directory

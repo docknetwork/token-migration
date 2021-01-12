@@ -70,7 +70,7 @@ async function loadDbRequests(dbClient) {
 }
 
 function findUnclaimedMigrations(vaultTxs, dbRequests) {
-    const res = vaultTxs.reduce((unclaimed, vaultTx) => {
+    return vaultTxs.reduce((unclaimed, vaultTx) => {
         const tx_db_id = `${vaultTx.from};${vaultTx.hash}`
 
         // if present in dbRequests, do not include in result
@@ -86,5 +86,4 @@ function findUnclaimedMigrations(vaultTxs, dbRequests) {
         const txSummary = { eth_blockNumber: blockNumber, timeStamp, vault_tx_hash: hash, eth_blockHash: blockHash, eth_from: from, eth_to: to, dock_amount: value }
         return { ...unclaimed, [tx_db_id]: { ...txSummary } }
     }, {})
-    return res
 }

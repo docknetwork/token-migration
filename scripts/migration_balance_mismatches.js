@@ -113,8 +113,7 @@ function findMismatchedBalances(chainAccounts, dbTotals) {
 async function fetchSpecialAccounts(dockClient) {
     const validatorAccountIds = await dockClient.api.query.poAModule.activeValidators();
     const validatorAddrs = validatorAccountIds.map((val) => {
-        const addrStr = asDockAddress(val, NETWORK)
-        return addrStr
+        return asDockAddress(val, NETWORK)
     })
 
     let specialAccounts = new Set(validatorAddrs);

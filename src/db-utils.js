@@ -189,13 +189,13 @@ export async function getStatsFromDB(dbClient) {
     if (resp[2].status === 'fulfilled') {
         stats['Total mainnet tokens given so far'] = parseFloat(resp[2].value.rows[0].tokens).toFixed(4);
     } else {
-        console.error('Could not fetch erc20');
+        console.error('Could not fetch tokens');
     }
     if (resp[3].status === 'fulfilled') {
         // 50% go towards vesting
         stats['Tokens locked in vesting so far'] = (resp[3].value.rows[0].tokens / 2).toFixed(4);
     } else {
-        console.error('Could not fetch erc20');
+        console.error('Could not fetch tokens');
     }
     return stats;
 }

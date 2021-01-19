@@ -114,7 +114,7 @@ export async function getPendingBonusDispRequests(dbClient, batchSize) {
 }
 
 export async function getInvalidRequests(dbClient) {
-    const sql = `SELECT eth_address, eth_txn_hash FROM public.requests WHERE status = ${REQ_STATUS.INVALID} AND is_vesting IS NOT NULL`;
+    const sql = `SELECT eth_address, eth_txn_hash FROM public.requests WHERE status = ${REQ_STATUS.INVALID}`;
     const res = await dbClient.query(sql);
     return res.rows;
 }

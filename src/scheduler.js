@@ -13,8 +13,10 @@ let web3Client;
 let dockNodeClient;
 let wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// This function will check for pending requests and wait for certain time and then call itself.
-async function schedule() {
+/**
+ * This function will check for pending requests and wait for certain time and then call itself.
+ */
+async function schedulePendingCheck() {
     try {
         // Process any pending requests
         await processPendingRequests(dbClient, web3Client, dockNodeClient);
@@ -25,7 +27,7 @@ async function schedule() {
     // Sleep for some time
     await wait(process.env.SCHEDULER_FREQ);
     // Repeat
-    await schedule();
+    await schedulePendingCheck();
 }
 
 void async function() {
@@ -37,5 +39,6 @@ void async function() {
 
     setupLogglyForScheduler();
 
-    await schedule();
+    await schedulePendingCheck();
+    await scheduleInvalidCheck();
 }();

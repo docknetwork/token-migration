@@ -2,7 +2,8 @@ const { DBClient } = require("../src/db-utils")
 const fetch = require('node-fetch');
 
 require('dotenv').config();
-const { get_VAULT_ADDR, get_ERC20_CONTRACT } = require("./common/consts.js")
+const { get_VAULT_ADDR, get_ERC20_CONTRACT } = require("./common/consts.js");
+const BN = require("bn.js");
 
 
 
@@ -20,7 +21,13 @@ async function main() {
     const dbRequests = await loadDbRequests(dbClient);
 
     const unclaimedMigrs = findUnclaimedMigrations(vaultTxs, dbRequests);
-    console.log({ unclaimed_migrations: Object.values(unclaimedMigrs), nb_unclaimed: Object.keys(unclaimedMigrs).length })
+    const values = Object.values(unclaimedMigrs);
+    values.sort(function(a, b) {
+        return new BN(a['dock_amount']).cmp(new BN(b['dock_amount']));
+    });
+    console.log(`No. of unclaimed migrations ${Object.keys(unclaimedMigrs).length}`);
+    console.log(`Total amount in unclaimed migrations ${values.reduce((accum, i) => accum.add(new BN(i['dock_amount'])), new BN('0'))}`);
+    console.log({ unclaimed_migrations: values})
 
     await dbClient.stop();
 }

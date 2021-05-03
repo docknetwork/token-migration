@@ -9,7 +9,10 @@ require('dotenv').config();
 const secretUri = '';
 const sender = '3EjNXTpMJieqEF5Fj5szwAqpvmmKFG3YtsY5eBazxaCkNtoz';
 
-// First batch of bonus claims in 0x53c23f5388be6921c313d6e20f7bf8da5f68773eb5b11e5a3e7e52418339d3c5
+// First batch of bonus claims in 0x53c23f5388be6921c313d6e20f7bf8da5f68773eb5b11e5a3e7e52418339d3c5 for fee of 37.4 tokens
+// 2nd batch of bonus claims in 0x5d7e35f593637504a81c96fd29a5858f2584bbd38a1555b6441ca0ce367785f2 for fee of 17.3 tokens
+// 3rd batch of bonus claims in 0x3afb06dfff4bdb75f86e3af719b885ba14e70b8761d2f8695897b76391284c90 for fee of 4.4 tokens
+// 4th batch of bonus claims in 0xfae623d8c5735b7ba617f25c9df50e48a6cf2ac5cb181292bac654328ee41482 for fee of 12.9 tokens
 
 void async function() {
   const dockClient = new DockNodeClient();

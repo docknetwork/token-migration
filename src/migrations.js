@@ -5,7 +5,8 @@ import {
     markRequestConfirmed,
     markRequestInvalid,
     markRequestParsed,
-    markRequestParsedAndConfirmed
+    markRequestParsedAndConfirmed,
+    getInvalidRequests
 } from "./db-utils";
 import {getTransactionAsDockERC20TransferToVault, isTxnConfirmedAsOf} from './eth-txn-utils'
 import {REQ_STATUS} from "./constants";
@@ -297,5 +298,33 @@ export async function processPendingRequests(dbClient, web3Client, dockNodeClien
             logMigrationWarning(`Migration attempt of confirmed requests failed with error ${e}`);
             await sendMigrationFailEmail();
         }
+    }
+}
+
+/**
+ * Reset status of all invalid requests to 0 so that they can be checked again. This is a blunt approach but the DB isn't even 1000 rows in total 
+ * and this function is run very infrequently so it shouldn't matter. 
+ */
+export async function resetAllInvalidMigrations(dbClient) {
+    const requests = await getInvalidRequests(dbClient);
+    if (requests.length === 0) {
+        console.log('No invalid requests');
+        return
+    } else {
+        console.log(`${requests.length} invalid requests`);
+    }
+
+    try {
+        await dbClient.client.query('BEGIN');
+        
+        requests.forEach(req => {
+            const sql = `UPDATE public.requests SET status = 0 WHERE eth_address = '${req.eth_address}' AND eth_txn_hash = '${req.eth_txn_hash}'`;
+            dbClient.client.query(sql);  
+        });
+        
+        await dbClient.client.query('COMMIT');
+    } catch (e) {
+        await dbClient.client.query('ROLLBACK');
+        throw e
     }
 }
